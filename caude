@@ -8,6 +8,7 @@
 set -euo pipefail
 
 readonly LABEL="com.karlinskys.caude-oc"
+readonly VERSION="0.2.2"
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 readonly PACKAGED_ROOT="/usr/local/lib/caude-o-clock"
 readonly APP_BUNDLE="/Applications/Caude o'clock.app"
@@ -148,25 +149,28 @@ wait_for_runner() {
 }
 
 print_banner() {
-    local blue='' reset=''
+    local blue='' title='' reset=''
     if [[ -t 1 ]]; then
         blue=$'\033[38;5;39m'
+        title=$'\033[1;38;5;39m'
         reset=$'\033[0m'
     fi
 
-    printf '%s\n' "${blue}╔══════════════════════════════════════════════════════════════════════════════════════════╗${reset}"
-    printf '%s\n' "${blue}║                                                                                          ║${reset}"
-    printf '%s\n' "${blue}║        .-\"\"\"\"\"\"-.                         ┌─────────────┐                        ║${reset}"
-    printf '%s\n' "${blue}║     .-'            '-.                      ╭──┤    10:10    ├──╮                     ║${reset}"
-    printf '%s\n' "${blue}║    /     ( o    o )    \\                    │  └──────┬──────┘  │                     ║${reset}"
-    printf '%s\n' "${blue}║   |          __         |                   │         ◷         │   CAUDE O'CLOCK      ║${reset}"
-    printf '%s\n' "${blue}║   |        .'  '.       |                   ╰───────────────────╯                     ║${reset}"
-    printf '%s\n' "${blue}║    \\      /  ~~~~ \\     /                                                        ║${reset}"
-    printf '%s\n' "${blue}║     '._   \______/  _.'                 is running in your menu bar.                   ║${reset}"
-    printf '%s\n' "${blue}║        '---.____.---'                    Happy development!                            ║${reset}"
-    printf '%s\n' "${blue}║           ~  ~  ~                                                                  ║${reset}"
-    printf '%s\n' "${blue}║                                                                                          ║${reset}"
-    printf '%s\n' "${blue}╚══════════════════════════════════════════════════════════════════════════════════════════╝${reset}"
+    printf '\n'
+    printf '%s\n' "${blue}              ▄████████████▄${reset}"
+    printf '%s\n' "${blue}          ▄████████████████████▄${reset}"
+    printf '%s\n' "${blue}       ███████    ███  ███    ███████${reset}"
+    printf '%s\n' "${blue}       ███████               ███████${reset}"
+    printf '%s\n' "${blue}        ███████      ▄      ███████${reset}"
+    printf '%s\n' "${blue}         ███████████████████████${reset}"
+    printf '%s\n' "${blue}    ▄████████████████████████████████▄${reset}"
+    printf '%s\n' "${blue}  ███████████████████████████████████████${reset}"
+    printf '%s\n' "${blue}   █████  █████ █████ █████ █████  █████${reset}"
+    printf '%s\n' "${blue}    ▀███▄  ▀▀▀▀▀ ▀▀▀▀▀ ▀▀▀▀▀  ▄███▀${reset}"
+    printf '\n'
+    printf '%s\n' "${title}        Caude o'clock v${VERSION}${reset}"
+    printf '%s\n' "${blue}     Running in your menu bar. Happy development!${reset}"
+    printf '\n'
 }
 
 start() {
