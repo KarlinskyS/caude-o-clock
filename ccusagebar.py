@@ -104,6 +104,12 @@ class AppDelegate(NSObject):
         return self
 
     def applicationDidFinishLaunching_(self, notification):
+        # py2app can finish the AppKit launch sequence before the Python
+        # bootstrap assigns this delegate. main() calls this method explicitly
+        # as well, so keep the setup safe to invoke more than once.
+        if getattr(self, "status_item", None) is not None:
+            return
+
         self._menubar_icon = NSImage.alloc().initByReferencingFile_(str(MENUBAR_ICON_PATH))
         self._menubar_icon.setTemplate_(True)
         self._menubar_icon.setSize_(NSMakeSize(18, 18))
@@ -356,6 +362,7 @@ def main():
     # without ever creating its status-bar item.
     APP_DELEGATE = AppDelegate.alloc().init()
     app.setDelegate_(APP_DELEGATE)
+    APP_DELEGATE.applicationDidFinishLaunching_(None)
     app.run()
 
 
