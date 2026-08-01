@@ -11,6 +11,7 @@ from __future__ import annotations
 import sys
 import traceback
 from datetime import datetime, timezone
+from pathlib import Path
 
 import objc
 from AppKit import (
@@ -22,6 +23,7 @@ from AppKit import (
     NSWindowCollectionBehaviorCanJoinAllSpaces, NSWindowCollectionBehaviorStationary,
     NSWindowCollectionBehaviorIgnoresCycle, NSWindowCollectionBehaviorFullScreenAuxiliary,
     NSEvent, NSEventMaskLeftMouseDown, NSEventMaskRightMouseDown,
+    NSImage, NSMakeSize, NSImageLeft,
 )
 from Foundation import NSTimer
 
@@ -39,6 +41,7 @@ POLL_SECONDS = 300.0
 MIN_RETRY_SECONDS = 60.0
 THRESHOLDS = (50, 75, 90)
 CLAUDE_USAGE_URL = "https://claude.ai/settings/usage"
+MENUBAR_ICON_PATH = Path(__file__).resolve().parent / "assets" / "menubar-glyph.png"
 
 
 def notify(title: str, subtitle: str, message: str):
@@ -101,10 +104,17 @@ class AppDelegate(NSObject):
         return self
 
     def applicationDidFinishLaunching_(self, notification):
+        self._menubar_icon = NSImage.alloc().initByReferencingFile_(str(MENUBAR_ICON_PATH))
+        self._menubar_icon.setTemplate_(True)
+        self._menubar_icon.setSize_(NSMakeSize(18, 18))
+
         self.status_item = NSStatusBar.systemStatusBar().statusItemWithLength_(-1)
-        self.status_item.button().setTitle_("⏳ …")
-        self.status_item.button().setTarget_(self)
-        self.status_item.button().setAction_(objc.selector(self.toggle_, signature=b"v@:@"))
+        button = self.status_item.button()
+        button.setImage_(self._menubar_icon)
+        button.setImagePosition_(NSImageLeft)
+        button.setTitle_(" …")
+        button.setTarget_(self)
+        button.setAction_(objc.selector(self.toggle_, signature=b"v@:@"))
 
         self.popover = NSPopover.alloc().init()
         self.popover.setBehavior_(NSPopoverBehaviorTransient)
@@ -267,12 +277,16 @@ class AppDelegate(NSObject):
 
     def _render(self):
         if self._last_error is not None:
-            self.status_item.button().setTitle_("⚠️")
+            button = self.status_item.button()
+            button.setImage_(None)
+            button.setTitle_("⚠️")
             self._render_error(self._last_error)
             return
 
         usage, today = self._usage, self._today
-        self.status_item.button().setTitle_(f"⏳ {usage.five_hour.percent:.0f}%")
+        button = self.status_item.button()
+        button.setImage_(self._menubar_icon)
+        button.setTitle_(f" {usage.five_hour.percent:.0f}%")
         card = build_card(
             usage, today,
             format_updated_at(datetime.now(timezone.utc)),

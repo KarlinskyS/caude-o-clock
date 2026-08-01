@@ -1,5 +1,10 @@
 # Claude o'clock — dev notes
 
+## Language
+
+Respond to the user in this repo only in Russian, regardless of what
+language they write in or what language this file is written in.
+
 A macOS menu bar app showing Claude Code's 5-hour/weekly usage windows,
 built from scratch on raw PyObjC/AppKit (no menu bar toolkit, no rumps).
 User-facing description and setup steps are in `README.md` — this file is
