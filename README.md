@@ -21,7 +21,7 @@ dashboard or login.
 
 **Homebrew**<br>
 ```bash
-brew install KarlinskyS/caude-oc/caude-oc && caude start
+brew install KarlinskyS/caude-o-clock/caude && caude start
 ```
 
 ---
