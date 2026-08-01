@@ -20,14 +20,16 @@ dashboard or login.
 ### Other ways to install
 
 **Homebrew**<br>
-`brew install KarlinskyS/caude-oc/caude-oc`<br>
-`caude start`
+```bash
+brew install KarlinskyS/caude-oc/caude-oc && caude start
+```
 
 ---
 
 **From GitHub**<br>
-`git clone https://github.com/KarlinskyS/caude-o-clock.git`<br>
-`cd caude-o-clock && ./caude start`
+```bash
+git clone https://github.com/KarlinskyS/caude-o-clock.git && cd caude-o-clock && ./caude start
+```
 
 <img src="assets/readme-hero.png" alt="Caude o'clock menu-bar companion" width="880">
 
