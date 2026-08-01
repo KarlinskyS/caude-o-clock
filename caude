@@ -8,7 +8,7 @@
 set -euo pipefail
 
 readonly LABEL="com.karlinskys.caude-oc"
-readonly VERSION="0.2.4"
+readonly VERSION="0.2.5"
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 readonly PACKAGED_ROOT="/usr/local/lib/caude-o-clock"
 readonly APP_BUNDLE="/Applications/Caude o'clock.app"
@@ -114,15 +114,26 @@ write_launch_agent() {
 }
 
 install_and_start_agent() {
-    local domain="gui/$(id -u)"
+    local domain="gui/$(id -u)" attempt
 
     write_launch_agent
     # A fresh definition is intentional: `caude start` must follow a cloned
     # checkout that has been moved or upgraded, rather than retaining stale
     # paths in an older launchd job.
     launchctl bootout "$domain/$LABEL" >/dev/null 2>&1 || true
-    launchctl bootstrap "$domain" "$AGENT_PATH"
-    launchctl kickstart -k "$domain/$LABEL"
+
+    # `bootout` is asynchronous on recent macOS releases. A following
+    # `bootstrap` can transiently return Error 5 while launchd is still
+    # removing the previous job, particularly straight after `brew upgrade`.
+    for attempt in {1..10}; do
+        if launchctl bootstrap "$domain" "$AGENT_PATH" >/dev/null 2>&1; then
+            launchctl kickstart -k "$domain/$LABEL"
+            return
+        fi
+        sleep 0.2
+    done
+
+    die "Could not register the menu-bar service. Try caude start again."
 }
 
 runner_is_alive() {
