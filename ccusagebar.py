@@ -343,11 +343,19 @@ class AppDelegate(NSObject):
         NSApplication.sharedApplication().terminate_(self)
 
 
+APP_DELEGATE = None
+
+
 def main():
+    global APP_DELEGATE
+
     app = NSApplication.sharedApplication()
     app.setActivationPolicy_(NSApplicationActivationPolicyAccessory)
-    delegate = AppDelegate.alloc().init()
-    app.setDelegate_(delegate)
+    # NSApplication keeps a weak delegate reference. Keep the Python proxy
+    # alive for the entire event loop; otherwise the process can survive
+    # without ever creating its status-bar item.
+    APP_DELEGATE = AppDelegate.alloc().init()
+    app.setDelegate_(APP_DELEGATE)
     app.run()
 
 

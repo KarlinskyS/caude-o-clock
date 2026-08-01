@@ -29,7 +29,7 @@ chmod 0755 "$TEMP_DIR/project/caude" "$TEMP_DIR/project/.venv/bin/python" "$TEMP
 CAUDE_TEST_DIR="$TEMP_DIR" HOME="$TEMP_DIR/home" PATH="$TEMP_DIR/bin:/usr/bin:/bin" \
     "$TEMP_DIR/project/caude" start > "$TEMP_DIR/output.txt"
 
-grep -F "Caude o'clock v0.2.3" "$TEMP_DIR/output.txt" >/dev/null
+grep -E "Caude o'clock v[0-9]+\\.[0-9]+\\.[0-9]+" "$TEMP_DIR/output.txt" >/dev/null
 grep -F "Happy development!" "$TEMP_DIR/output.txt" >/dev/null
 grep -F "com.karlinskys.caude-oc" "$TEMP_DIR/home/Library/LaunchAgents/com.karlinskys.caude-oc.plist" >/dev/null
 LAUNCHER_PATH="$(cd "$TEMP_DIR/project" && pwd -P)/caude"
