@@ -5,8 +5,7 @@
 ### Your Claude usage, quietly visible.
 
 Caude o'clock is a tiny macOS menu-bar companion for Claude Code: your 5-hour
-and weekly windows, reset times, and today's local activity — without another
-dashboard or login.
+and weekly windows and reset times — without another dashboard or login.
 
 <p align="left">
   <a href="https://github.com/KarlinskyS/caude-o-clock/releases/latest/download/Caude-o-clock.pkg">
