@@ -8,7 +8,7 @@
 set -euo pipefail
 
 readonly LABEL="com.karlinskys.caude-oc"
-readonly VERSION="0.2.8"
+readonly VERSION="0.3.0"
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 readonly PACKAGED_ROOT="/usr/local/lib/caude-o-clock"
 readonly APP_BUNDLE="/Applications/Caude o'clock.app"
@@ -30,9 +30,9 @@ xml_escape() {
 }
 
 app_bundle_path() {
-    if [[ "$SCRIPT_DIR" == "$PACKAGED_ROOT" && -d "$APP_BUNDLE" ]]; then
+    if [[ "$SCRIPT_DIR" == "$PACKAGED_ROOT" && -x "$APP_BUNDLE/Contents/MacOS/Caude o'clock" ]]; then
         printf '%s\n' "$APP_BUNDLE"
-    elif [[ -d "$SCRIPT_DIR/Caude o'clock.app" ]]; then
+    elif [[ -x "$SCRIPT_DIR/Caude o'clock.app/Contents/MacOS/Caude o'clock" ]]; then
         printf '%s\n' "$SCRIPT_DIR/Caude o'clock.app"
     else
         return 1
@@ -43,42 +43,30 @@ uses_app_bundle() {
     app_bundle_path >/dev/null 2>&1
 }
 
-python_path() {
-    if [[ -x "$SCRIPT_DIR/venv/bin/python" ]]; then
-        printf '%s\n' "$SCRIPT_DIR/venv/bin/python"
-    elif [[ -x "$SCRIPT_DIR/.venv/bin/python" ]]; then
-        printf '%s\n' "$SCRIPT_DIR/.venv/bin/python"
-    else
-        return 1
-    fi
-}
+build_clone_bundle() {
+    local swiftc bundle
+    swiftc="/usr/bin/swiftc"
+    [[ -x "$swiftc" ]] || die "Xcode Command Line Tools are required. Install them with: xcode-select --install"
+    [[ -f "$SCRIPT_DIR/native/CaudeOClock.swift" ]] || die "Native application sources are missing from $SCRIPT_DIR."
 
-prepare_clone_environment() {
-    local system_python
-    system_python="$(command -v python3 || true)"
-    [[ -n "$system_python" ]] || die "Python 3 is required. Install it, then run ./caude start again."
-
-    if [[ ! -x "$SCRIPT_DIR/.venv/bin/python" ]]; then
-        printf 'Preparing Caude o\047clock…\n'
-        "$system_python" -m venv "$SCRIPT_DIR/.venv"
-    fi
-
-    if ! "$SCRIPT_DIR/.venv/bin/python" -c 'import AppKit' >/dev/null 2>&1; then
-        printf 'Installing required components…\n'
-        "$SCRIPT_DIR/.venv/bin/python" -m pip install --disable-pip-version-check -r "$SCRIPT_DIR/requirements.txt"
-    fi
+    bundle="$SCRIPT_DIR/Caude o'clock.app"
+    printf 'Building Caude o\047clock…\n'
+    mkdir -p "$bundle/Contents/MacOS" "$bundle/Contents/Resources"
+    "$swiftc" "$SCRIPT_DIR/native/CaudeOClock.swift" \
+        -framework AppKit \
+        -framework Foundation \
+        -o "$bundle/Contents/MacOS/Caude o'clock"
+    install -m 0644 "$SCRIPT_DIR/native/Info.plist" "$bundle/Contents/Info.plist"
+    install -m 0644 "$SCRIPT_DIR/assets/app-icon.icns" "$bundle/Contents/Resources/app-icon.icns"
+    /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$bundle/Contents/Info.plist"
+    /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $VERSION" "$bundle/Contents/Info.plist"
 }
 
 ensure_runner() {
     if uses_app_bundle; then
         return
     fi
-
-    if ! python_path >/dev/null; then
-        prepare_clone_environment
-    fi
-
-    [[ -f "$SCRIPT_DIR/ccusagebar.py" ]] || die "Application files are missing from $SCRIPT_DIR."
+    build_clone_bundle
 }
 
 write_launch_agent() {
@@ -152,7 +140,7 @@ runner_is_alive() {
         bundle="$(app_bundle_path)"
         pgrep -f "$bundle/Contents/MacOS/" >/dev/null 2>&1
     else
-        pgrep -f "${SCRIPT_DIR}/ccusagebar.py" >/dev/null 2>&1
+        return 1
     fi
 }
 
@@ -223,9 +211,7 @@ run() {
         exec /usr/bin/open -gja "$bundle"
     fi
 
-    local runner_python
-    runner_python="$(python_path)" || die "Python environment is not prepared. Run caude start from the application directory."
-    exec "$runner_python" "$SCRIPT_DIR/ccusagebar.py"
+    die "Native application bundle is not prepared. Run caude start from the application directory."
 }
 
 case "${1:-}" in

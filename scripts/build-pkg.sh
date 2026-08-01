@@ -35,32 +35,23 @@ mkdir -p "$OUTPUT_DIR"
     exit 1
 }
 
-BUILD_VENV="$TEMP_DIR/build-venv"
-BUILD_PYTHON="$(command -v python3.12 || command -v python3 || true)"
-[[ -n "$BUILD_PYTHON" ]] || {
-    printf 'Python 3.12 or later is required to build the package.\n' >&2
+SWIFTC="/usr/bin/swiftc"
+[[ -x "$SWIFTC" ]] || {
+    printf 'Xcode Command Line Tools are required to build the package.\n' >&2
     exit 1
 }
-"$BUILD_PYTHON" -c 'import sys; raise SystemExit(sys.version_info < (3, 12))' || {
-    printf 'Python 3.12 or later is required to build the package.\n' >&2
-    exit 1
-}
-"$BUILD_PYTHON" -m venv "$BUILD_VENV"
-"$BUILD_VENV/bin/python" -m pip install --disable-pip-version-check --quiet -r "$PROJECT_ROOT/requirements-build.txt"
 
-PY2APP_LOG="$TEMP_DIR/py2app.log"
-if ! "$BUILD_VENV/bin/python" "$PROJECT_ROOT/setup.py" -q py2app \
-    --dist-dir "$TEMP_DIR/dist" \
-    --bdist-base "$TEMP_DIR/build" > "$PY2APP_LOG" 2>&1; then
-    tail -n 80 "$PY2APP_LOG" >&2
-    exit 1
-fi
-
-APP_SOURCE="$TEMP_DIR/dist/Caude o'clock.app"
-[[ -d "$APP_SOURCE" ]] || {
-    printf 'py2app did not produce Caude o\047clock.app\n' >&2
-    exit 1
-}
+APP_SOURCE="$TEMP_DIR/Caude o'clock.app"
+mkdir -p "$APP_SOURCE/Contents/MacOS" "$APP_SOURCE/Contents/Resources"
+"$SWIFTC" "$PROJECT_ROOT/native/CaudeOClock.swift" \
+    -framework AppKit \
+    -framework Foundation \
+    -o "$APP_SOURCE/Contents/MacOS/Caude o'clock"
+install -m 0644 "$PROJECT_ROOT/native/Info.plist" "$APP_SOURCE/Contents/Info.plist"
+install -m 0644 "$PROJECT_ROOT/assets/app-icon.icns" "$APP_SOURCE/Contents/Resources/app-icon.icns"
+/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$APP_SOURCE/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $VERSION" "$APP_SOURCE/Contents/Info.plist"
+plutil -lint "$APP_SOURCE/Contents/Info.plist" >/dev/null
 
 PAYLOAD="$TEMP_DIR/payload"
 mkdir -p "$PAYLOAD/Applications" "$PAYLOAD/usr/local/bin" "$PAYLOAD/usr/local/lib/caude-o-clock"
