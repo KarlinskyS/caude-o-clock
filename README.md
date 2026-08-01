@@ -15,7 +15,21 @@ login flow.
 - Python 3
 - Claude Code CLI installed and logged in at least once (`claude login`)
 
-## Setup
+## Install via Homebrew
+
+```bash
+brew tap KarlinskyS/caude-oc git@github.com:KarlinskyS/homebrew-caude-oc.git
+brew install coc
+brew services start coc   # runs at login, replaces the manual launchd setup below
+```
+
+The formula (`karlinskys/caude-oc/coc`) pulls source from this repo's
+`git` tag over SSH — the repo is private, so this only works with your own
+SSH access to it, same as `git clone` already needs. It creates its own
+Python venv under the Homebrew Cellar and installs `pyobjc-framework-Cocoa`
+into it; no separate `python3 -m venv` step needed.
+
+## Setup (manual, without Homebrew)
 
 ```bash
 python3 -m venv .venv
@@ -26,7 +40,10 @@ python3 -m venv .venv
 A ghost-with-a-pocket-watch icon and a percentage (`NN%`) appear in the
 menu bar. Click it for the usage card; click elsewhere to dismiss.
 
-## Run at login (launchd)
+## Run at login (launchd, manual setup only)
+
+Skip this if you installed via Homebrew — `brew services start coc` already
+covers it.
 
 Create `~/Library/LaunchAgents/com.yourname.ccusagebar.plist`, substituting
 your own paths:
