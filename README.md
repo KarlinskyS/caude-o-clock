@@ -1,4 +1,4 @@
-# Claude o'clock
+# Caude o'clock
 
 A macOS menu bar app that shows your Claude 5-hour / weekly usage windows,
 notifies you at 50/75/90% and when the 5-hour limit resets, and shows
@@ -40,11 +40,11 @@ your own paths:
     <string>com.yourname.ccusagebar</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/absolute/path/to/claude-o-clock/.venv/bin/python</string>
-        <string>/absolute/path/to/claude-o-clock/ccusagebar.py</string>
+        <string>/absolute/path/to/caude-o-clock/.venv/bin/python</string>
+        <string>/absolute/path/to/caude-o-clock/ccusagebar.py</string>
     </array>
     <key>WorkingDirectory</key>
-    <string>/absolute/path/to/claude-o-clock</string>
+    <string>/absolute/path/to/caude-o-clock</string>
     <key>RunAtLoad</key>
     <true/>
     <key>KeepAlive</key>
@@ -53,9 +53,9 @@ your own paths:
         <false/>
     </dict>
     <key>StandardOutPath</key>
-    <string>/absolute/path/to/claude-o-clock/ccusagebar.log</string>
+    <string>/absolute/path/to/caude-o-clock/ccusagebar.log</string>
     <key>StandardErrorPath</key>
-    <string>/absolute/path/to/claude-o-clock/ccusagebar.err.log</string>
+    <string>/absolute/path/to/caude-o-clock/ccusagebar.err.log</string>
 </dict>
 </plist>
 ```

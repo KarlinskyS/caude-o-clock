@@ -1,4 +1,4 @@
-# Claude o'clock — dev notes
+# Caude o'clock — dev notes
 
 ## Language
 

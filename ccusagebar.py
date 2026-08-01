@@ -1,4 +1,4 @@
-"""Claude o'clock — a from-scratch menu bar usage panel for Claude Code.
+"""Caude o'clock — a from-scratch menu bar usage panel for Claude Code.
 
 Not a clone of any existing app's code: custom AppKit popover (own layout,
 own palette, own local-session stats section), built directly on PyObjC

@@ -14,7 +14,7 @@ from Foundation import NSLocale
 
 _STRINGS = {
     "en": {
-        "app_name": "Claude o'clock",
+        "app_name": "Caude o'clock",
         "five_hour": "5-Hour Window",
         "weekly": "Weekly",
         "today_header": "TODAY (LOCAL SESSIONS)",
@@ -41,7 +41,7 @@ _STRINGS = {
         "weekdays": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
     },
     "ru": {
-        "app_name": "Claude o'clock",
+        "app_name": "Caude o'clock",
         "five_hour": "5-часовое окно",
         "weekly": "Недельный лимит",
         "today_header": "СЕГОДНЯ (ЛОКАЛЬНЫЕ СЕССИИ)",
@@ -68,7 +68,7 @@ _STRINGS = {
         "weekdays": ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"],
     },
     "es": {
-        "app_name": "Claude o'clock",
+        "app_name": "Caude o'clock",
         "five_hour": "Ventana de 5 horas",
         "weekly": "Semanal",
         "today_header": "HOY (SESIONES LOCALES)",
@@ -95,7 +95,7 @@ _STRINGS = {
         "weekdays": ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"],
     },
     "de": {
-        "app_name": "Claude o'clock",
+        "app_name": "Caude o'clock",
         "five_hour": "5-Stunden-Fenster",
         "weekly": "Wöchentlich",
         "today_header": "HEUTE (LOKALE SITZUNGEN)",
@@ -122,7 +122,7 @@ _STRINGS = {
         "weekdays": ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"],
     },
     "fr": {
-        "app_name": "Claude o'clock",
+        "app_name": "Caude o'clock",
         "five_hour": "Fenêtre de 5 heures",
         "weekly": "Hebdomadaire",
         "today_header": "AUJOURD'HUI (SESSIONS LOCALES)",
@@ -149,7 +149,7 @@ _STRINGS = {
         "weekdays": ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"],
     },
     "pt": {
-        "app_name": "Claude o'clock",
+        "app_name": "Caude o'clock",
         "five_hour": "Janela de 5 horas",
         "weekly": "Semanal",
         "today_header": "HOJE (SESSÕES LOCAIS)",
@@ -176,7 +176,7 @@ _STRINGS = {
         "weekdays": ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"],
     },
     "ja": {
-        "app_name": "Claude o'clock",
+        "app_name": "Caude o'clock",
         "five_hour": "5時間ウィンドウ",
         "weekly": "週間",
         "today_header": "今日（ローカルセッション）",
@@ -203,7 +203,7 @@ _STRINGS = {
         "weekdays": ["月", "火", "水", "木", "金", "土", "日"],
     },
     "zh": {
-        "app_name": "Claude o'clock",
+        "app_name": "Caude o'clock",
         "five_hour": "5小时窗口",
         "weekly": "每周",
         "today_header": "今天（本地会话）",
