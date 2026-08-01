@@ -21,6 +21,7 @@ from AppKit import (
     NSWindowStyleMaskBorderless, NSBackingStoreBuffered,
     NSWindowCollectionBehaviorCanJoinAllSpaces, NSWindowCollectionBehaviorStationary,
     NSWindowCollectionBehaviorIgnoresCycle, NSWindowCollectionBehaviorFullScreenAuxiliary,
+    NSEvent, NSEventMaskLeftMouseDown, NSEventMaskRightMouseDown,
 )
 from Foundation import NSTimer
 
@@ -96,6 +97,7 @@ class AppDelegate(NSObject):
         self._usage = None
         self._today = None
         self._last_error = None
+        self._overlay_level = None
         return self
 
     def applicationDidFinishLaunching_(self, notification):
@@ -106,6 +108,7 @@ class AppDelegate(NSObject):
 
         self.popover = NSPopover.alloc().init()
         self.popover.setBehavior_(NSPopoverBehaviorTransient)
+        self.popover.setAnimates_(False)
         self.view_controller = NSViewController.alloc().init()
         self.popover.setContentViewController_(self.view_controller)
 
@@ -116,7 +119,28 @@ class AppDelegate(NSObject):
         # "click wallpaper to reveal desktop" gesture underneath. Instead we
         # show a real, invisible, screen-covering window (see
         # ClickCatcherView) behind the popover to physically catch the click.
+        #
+        # It's ordered into the window stack exactly once, here, and stays
+        # there permanently. Repeatedly calling orderFront_/orderOut_ on a
+        # screen-covering window on every single popover open/close forces
+        # WindowServer to redo z-order compositing for the whole screen each
+        # time -- that was the actual cause of the janky open/close, not the
+        # popover animation itself. Toggling ignoresMouseEvents_ instead is a
+        # cheap property flip with no compositing cost.
         self.overlay = self.buildOverlay()
+        self.overlay.setIgnoresMouseEvents_(True)
+        self.overlay.orderFront_(None)
+
+        # The overlay only catches clicks below its own window level, which
+        # sits just under the popover -- it can't out-level system UI like
+        # the Dock or other apps' menu bar items (those are owned by other
+        # processes at very high levels and would otherwise leave the
+        # popover stuck open). A global monitor sees those regardless of
+        # level -- it can't consume the click (so Dock clicks still work
+        # normally), but that's fine here, we only need it to close us.
+        self.dock_click_monitor = NSEvent.addGlobalMonitorForEventsMatchingMask_handler_(
+            NSEventMaskLeftMouseDown | NSEventMaskRightMouseDown, self.handleOutsideClick_
+        )
 
         NSUserNotificationCenter.defaultUserNotificationCenter().setDelegate_(self)
 
@@ -147,7 +171,6 @@ class AppDelegate(NSObject):
         win.setOpaque_(False)
         win.setBackgroundColor_(NSColor.clearColor())
         win.setHasShadow_(False)
-        win.setIgnoresMouseEvents_(False)
         win.setReleasedWhenClosed_(False)
         win.setCollectionBehavior_(
             NSWindowCollectionBehaviorCanJoinAllSpaces
@@ -159,14 +182,20 @@ class AppDelegate(NSObject):
         return win
 
     def showOverlay(self):
-        self.overlay.setFrame_display_(self.allScreensFrame(), False)
-        popover_window = self.popover.contentViewController().view().window()
-        if popover_window is not None:
-            self.overlay.setLevel_(popover_window.level() - 1)
-        self.overlay.orderFront_(None)
+        # The window is already in the stack (ordered once, at launch) --
+        # just need it interactive. Level only needs figuring out once: the
+        # popover's own window doesn't exist until the first time it's been
+        # shown, so we discover the level lazily and cache it, rather than
+        # re-querying/re-setting it (itself not free) on every open.
+        if self._overlay_level is None:
+            popover_window = self.popover.contentViewController().view().window()
+            if popover_window is not None:
+                self._overlay_level = popover_window.level() - 1
+                self.overlay.setLevel_(self._overlay_level)
+        self.overlay.setIgnoresMouseEvents_(False)
 
     def hideOverlay(self):
-        self.overlay.orderOut_(None)
+        self.overlay.setIgnoresMouseEvents_(True)
 
     def dismissPopover_(self, sender):
         if self.popover.isShown():
@@ -174,17 +203,27 @@ class AppDelegate(NSObject):
         self.hideOverlay()
         self.status_item.button().setHighlighted_(False)
 
+    def handleOutsideClick_(self, event):
+        if self.popover.isShown():
+            self.dismissPopover_(event)
+
     def toggle_(self, sender):
         if self.popover.isShown():
             self.dismissPopover_(sender)
             return
         if self._usage is None and self._last_error is None:
             self.refresh_(None)  # first-ever open before any data arrived
-        else:
-            self._render()  # reuse cached data -- no network call on open
+        # Otherwise: don't rebuild. refresh_() already built and assigned the
+        # current card the last time it ran (launch or periodic timer), so
+        # the popover's content is already up to date. Rebuilding ~20 views
+        # again here, synchronously, right as the popover opens, was pure
+        # redundant work that made the open feel janky.
         self.popover.showRelativeToRect_ofView_preferredEdge_(
             self.status_item.button().bounds(), self.status_item.button(), NSMinYEdge
         )
+        # Called after showRelativeToRect: the popover's own backing window
+        # doesn't exist until it's been shown at least once, and showOverlay
+        # needs that window (to read its level) the first time it runs.
         self.showOverlay()
         # The button's own mouseDown tracking loop resets highlighted=NO as
         # it wraps up *after* this action method returns, so setting it here
@@ -284,6 +323,9 @@ class AppDelegate(NSObject):
 
     def quit_(self, sender):
         self.hideOverlay()
+        if getattr(self, "dock_click_monitor", None) is not None:
+            NSEvent.removeMonitor_(self.dock_click_monitor)
+            self.dock_click_monitor = None
         NSApplication.sharedApplication().terminate_(self)
 
 
