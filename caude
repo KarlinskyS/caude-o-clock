@@ -8,7 +8,7 @@
 set -euo pipefail
 
 readonly LABEL="com.karlinskys.caude-oc"
-readonly VERSION="0.2.6"
+readonly VERSION="0.2.7"
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 readonly PACKAGED_ROOT="/usr/local/lib/caude-o-clock"
 readonly APP_BUNDLE="/Applications/Caude o'clock.app"
