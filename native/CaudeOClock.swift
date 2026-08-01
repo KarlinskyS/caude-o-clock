@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import SwiftUI
 
 struct UsageSnapshot {
     let fiveHour: Double
@@ -33,8 +34,7 @@ enum UsageLoader {
 
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse, 200..<300 ~= http.statusCode else {
-            let body = String(data: data, encoding: .utf8) ?? ""
-            throw UsageError.message("Claude usage API returned \((response as? HTTPURLResponse)?.statusCode ?? 0): \(body)")
+            throw UsageError.message("Claude usage API returned \((response as? HTTPURLResponse)?.statusCode ?? 0).")
         }
         guard let root = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw UsageError.message("Claude usage API returned an unexpected response.")
@@ -78,204 +78,147 @@ enum UsageLoader {
     }
 }
 
-final class UsageViewController: NSViewController {
-    private let titleLabel = label("Caude o'clock", size: 15, weight: .semibold)
-    private let planLabel = label("", size: 11, color: .secondaryLabelColor)
-    private let fiveLabel = label("5-Hour Window", size: 13, weight: .medium)
-    private let fiveValue = label("—", size: 18, weight: .bold)
-    private let fiveReset = label("Loading…", size: 11, color: .secondaryLabelColor)
-    private let fiveBar = progressBar()
-    private let weeklyLabel = label("Weekly", size: 13, weight: .medium)
-    private let weeklyValue = label("—", size: 18, weight: .bold)
-    private let weeklyReset = label("", size: 11, color: .secondaryLabelColor)
-    private let weeklyBar = progressBar()
-    private let errorLabel = label("", size: 11, color: .systemRed)
-    var onRefresh: (() -> Void)?
-    var onOpenClaude: (() -> Void)?
-    var onQuit: (() -> Void)?
+@MainActor
+final class UsageModel: ObservableObject {
+    @Published private(set) var usage: UsageSnapshot?
+    @Published private(set) var errorMessage: String?
+    @Published private(set) var isLoading = false
 
-    override func loadView() {
-        let root = NSView(frame: NSRect(x: 0, y: 0, width: 320, height: 1))
-        let stack = NSStackView()
-        stack.orientation = .vertical
-        stack.alignment = .leading
-        stack.spacing = 7
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        root.addSubview(stack)
-
-        let header = NSStackView(views: [titleLabel, spacer(), planLabel])
-        header.orientation = .horizontal
-        header.alignment = .centerY
-        header.spacing = 8
-        stack.addArrangedSubview(header)
-        stack.addArrangedSubview(divider())
-        stack.addArrangedSubview(section(label: fiveLabel, value: fiveValue, bar: fiveBar, reset: fiveReset))
-        stack.addArrangedSubview(divider())
-        stack.addArrangedSubview(section(label: weeklyLabel, value: weeklyValue, bar: weeklyBar, reset: weeklyReset))
-        stack.addArrangedSubview(divider())
-        errorLabel.maximumNumberOfLines = 3
-        errorLabel.isHidden = true
-        stack.addArrangedSubview(errorLabel)
-
-        let refresh = textButton("⟳ Refresh", action: #selector(refreshPressed))
-        let open = textButton("Open claude.ai ↗", action: #selector(openPressed))
-        let quit = textButton("Quit", action: #selector(quitPressed))
-        let footer = NSStackView(views: [refresh, spacer(), open, quit])
-        footer.orientation = .horizontal
-        footer.alignment = .centerY
-        footer.spacing = 12
-        stack.addArrangedSubview(footer)
-
-        NSLayoutConstraint.activate([
-            stack.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 18),
-            stack.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -18),
-            stack.topAnchor.constraint(equalTo: root.topAnchor, constant: 16),
-            stack.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -16),
-            fiveBar.widthAnchor.constraint(equalToConstant: 284),
-            weeklyBar.widthAnchor.constraint(equalToConstant: 284),
-        ])
-        self.view = root
-    }
-
-    func render(_ usage: UsageSnapshot) {
-        errorLabel.isHidden = true
-        planLabel.stringValue = usage.plan
-        fiveValue.stringValue = "\(Int(usage.fiveHour.rounded()))%"
-        weeklyValue.stringValue = "\(Int(usage.weekly.rounded()))%"
-        fiveBar.doubleValue = usage.fiveHour
-        weeklyBar.doubleValue = usage.weekly
-        fiveReset.stringValue = resetText(usage.fiveHourReset, prefix: "Resets")
-        weeklyReset.stringValue = resetText(usage.weeklyReset, prefix: "Resets")
-    }
-
-    func showError(_ error: Error) {
-        errorLabel.stringValue = error.localizedDescription
-        errorLabel.isHidden = false
-    }
-
-    @objc private func refreshPressed() { onRefresh?() }
-    @objc private func openPressed() { onOpenClaude?() }
-    @objc private func quitPressed() { onQuit?() }
-
-    private func section(label: NSTextField, value: NSTextField, bar: NSProgressIndicator, reset: NSTextField) -> NSStackView {
-        let top = NSStackView(views: [label, spacer(), value])
-        top.orientation = .horizontal
-        top.alignment = .centerY
-        let section = NSStackView(views: [top, bar, reset])
-        section.orientation = .vertical
-        section.alignment = .leading
-        section.spacing = 5
-        return section
-    }
-
-    private func resetText(_ date: Date?, prefix: String) -> String {
-        guard let date else { return "\(prefix) —" }
-        let remaining = max(0, Int(date.timeIntervalSinceNow / 60))
-        let hours = remaining / 60
-        let minutes = remaining % 60
-        return hours > 0 ? "\(prefix) in \(hours)h \(minutes)m" : "\(prefix) in \(minutes)m"
-    }
-}
-
-final class AppDelegate: NSObject, NSApplicationDelegate {
-    private let popover = NSPopover()
-    private let controller = UsageViewController()
-    private var statusItem: NSStatusItem!
-
-    func applicationDidFinishLaunching(_ notification: Notification) {
-        NSApp.setActivationPolicy(.accessory)
-        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        // Visibility can be restored from a prior menu-bar layout.  Give this
-        // item a stable identity and explicitly restore it on every launch so
-        // an older removed/hidden entry cannot keep the app invisible.
-        statusItem.autosaveName = "com.karlinskys.caude-oc.status-item"
-        statusItem.isVisible = true
-        guard let button = statusItem.button else { return }
-        // A template image stays legible in both macOS light and dark menu
-        // bars.  It is intentionally supplied in addition to the percentage:
-        // macOS may compact textual menu extras when space is constrained.
-        let image = NSImage(systemSymbolName: "clock", accessibilityDescription: "Caude o'clock")
-        image?.isTemplate = true
-        button.image = image
-        button.imagePosition = .imageLeft
-        button.title = " …"
-        button.target = self
-        button.action = #selector(togglePopover(_:))
-        button.font = .monospacedDigitSystemFont(ofSize: 13, weight: .semibold)
-
-        popover.behavior = .transient
-        popover.contentViewController = controller
-        controller.onRefresh = { [weak self] in self?.refresh() }
-        controller.onOpenClaude = { NSWorkspace.shared.open(URL(string: "https://claude.ai/settings/usage")!) }
-        controller.onQuit = { NSApp.terminate(nil) }
+    init() {
         refresh()
     }
 
-    @objc private func togglePopover(_ sender: Any?) {
-        guard let button = statusItem.button else { return }
-        if popover.isShown { popover.performClose(sender) }
-        else { popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY) }
+    var statusTitle: String {
+        if let usage { return "\(Int(usage.fiveHour.rounded()))%" }
+        return errorMessage == nil ? "…" : "!"
     }
 
-    private func refresh() {
-        statusItem.button?.title = " …"
+    func refresh() {
+        guard !isLoading else { return }
+        isLoading = true
+        errorMessage = nil
         Task {
             do {
-                let usage = try await UsageLoader.fetch()
-                await MainActor.run { [weak self] in
-                    self?.controller.render(usage)
-                    self?.statusItem.button?.title = " \(Int(usage.fiveHour.rounded()))%"
-                }
+                usage = try await UsageLoader.fetch()
             } catch {
-                await MainActor.run { [weak self] in
-                    self?.controller.showError(error)
-                    self?.statusItem.button?.title = " !"
-                }
+                errorMessage = error.localizedDescription
             }
+            isLoading = false
         }
     }
 }
 
-private func label(_ text: String, size: CGFloat, weight: NSFont.Weight = .regular, color: NSColor? = nil) -> NSTextField {
-    let field = NSTextField(labelWithString: text)
-    field.font = NSFont.systemFont(ofSize: size, weight: weight)
-    field.textColor = color ?? .labelColor
-    return field
+struct UsagePopover: View {
+    @ObservedObject var model: UsageModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("Caude o'clock")
+                    .font(.headline)
+                Spacer()
+                Text(model.usage?.plan ?? "Claude Code")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Divider()
+
+            if let usage = model.usage {
+                UsageSection(
+                    title: "5-Hour Window",
+                    value: usage.fiveHour,
+                    reset: resetText(usage.fiveHourReset)
+                )
+                Divider()
+                UsageSection(
+                    title: "Weekly",
+                    value: usage.weekly,
+                    reset: resetText(usage.weeklyReset)
+                )
+            } else if model.isLoading {
+                HStack(spacing: 8) {
+                    ProgressView()
+                    Text("Loading Claude usage…")
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, minHeight: 100)
+            } else if let error = model.errorMessage {
+                Text(error)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                    .frame(maxWidth: .infinity, minHeight: 100, alignment: .leading)
+            }
+
+            Divider()
+
+            HStack {
+                Button {
+                    model.refresh()
+                } label: {
+                    Label("Refresh", systemImage: "arrow.clockwise")
+                }
+                .buttonStyle(.plain)
+                .disabled(model.isLoading)
+
+                Spacer()
+
+                Link("Open claude.ai ↗", destination: URL(string: "https://claude.ai/settings/usage")!)
+                    .buttonStyle(.plain)
+
+                Button("Quit") {
+                    NSApplication.shared.terminate(nil)
+                }
+                .buttonStyle(.plain)
+            }
+            .font(.caption)
+        }
+        .frame(width: 320)
+        .padding(16)
+    }
+
+    private func resetText(_ date: Date?) -> String {
+        guard let date else { return "Resets —" }
+        let remaining = max(0, Int(date.timeIntervalSinceNow / 60))
+        let hours = remaining / 60
+        let minutes = remaining % 60
+        return hours > 0 ? "Resets in \(hours)h \(minutes)m" : "Resets in \(minutes)m"
+    }
 }
 
-private func progressBar() -> NSProgressIndicator {
-    let bar = NSProgressIndicator()
-    bar.isIndeterminate = false
-    bar.minValue = 0
-    bar.maxValue = 100
-    bar.controlSize = .small
-    bar.style = .bar
-    return bar
+private struct UsageSection: View {
+    let title: String
+    let value: Double
+    let reset: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(title)
+                    .font(.subheadline.weight(.medium))
+                Spacer()
+                Text("\(Int(value.rounded()))%")
+                    .font(.title3.weight(.bold))
+            }
+            ProgressView(value: min(max(value, 0), 100), total: 100)
+                .tint(value >= 80 ? .orange : .blue)
+            Text(reset)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
 }
 
-private func divider() -> NSBox {
-    let line = NSBox()
-    line.boxType = .separator
-    return line
-}
+@main
+struct CaudeOClockApp: App {
+    @StateObject private var model = UsageModel()
 
-private func spacer() -> NSView {
-    let view = NSView()
-    view.setContentHuggingPriority(.defaultLow, for: .horizontal)
-    view.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-    return view
+    var body: some Scene {
+        MenuBarExtra {
+            UsagePopover(model: model)
+        } label: {
+            Label(model.statusTitle, systemImage: "clock")
+        }
+        .menuBarExtraStyle(.window)
+    }
 }
-
-private func textButton(_ title: String, action: Selector) -> NSButton {
-    let button = NSButton(title: title, target: nil, action: action)
-    button.isBordered = false
-    button.font = .systemFont(ofSize: 11)
-    return button
-}
-
-let app = NSApplication.shared
-let delegate = AppDelegate()
-app.delegate = delegate
-app.setActivationPolicy(.accessory)
-app.finishLaunching()
-app.run()

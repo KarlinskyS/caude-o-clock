@@ -44,8 +44,10 @@ SWIFTC="/usr/bin/swiftc"
 APP_SOURCE="$TEMP_DIR/Caude o'clock.app"
 mkdir -p "$APP_SOURCE/Contents/MacOS" "$APP_SOURCE/Contents/Resources"
 "$SWIFTC" "$PROJECT_ROOT/native/CaudeOClock.swift" \
+    -parse-as-library \
     -framework AppKit \
     -framework Foundation \
+    -framework SwiftUI \
     -o "$APP_SOURCE/Contents/MacOS/Caude o'clock"
 install -m 0644 "$PROJECT_ROOT/native/Info.plist" "$APP_SOURCE/Contents/Info.plist"
 install -m 0644 "$PROJECT_ROOT/assets/app-icon.icns" "$APP_SOURCE/Contents/Resources/app-icon.icns"

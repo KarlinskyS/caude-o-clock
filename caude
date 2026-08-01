@@ -8,7 +8,7 @@
 set -euo pipefail
 
 readonly LABEL="com.karlinskys.caude-oc"
-readonly VERSION="0.3.0"
+readonly VERSION="0.3.1"
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 readonly PACKAGED_ROOT="/usr/local/lib/caude-o-clock"
 readonly APP_BUNDLE="/Applications/Caude o'clock.app"
@@ -53,8 +53,10 @@ build_clone_bundle() {
     printf 'Building Caude o\047clock…\n'
     mkdir -p "$bundle/Contents/MacOS" "$bundle/Contents/Resources"
     "$swiftc" "$SCRIPT_DIR/native/CaudeOClock.swift" \
+        -parse-as-library \
         -framework AppKit \
         -framework Foundation \
+        -framework SwiftUI \
         -o "$bundle/Contents/MacOS/Caude o'clock"
     install -m 0644 "$SCRIPT_DIR/native/Info.plist" "$bundle/Contents/Info.plist"
     install -m 0644 "$SCRIPT_DIR/assets/app-icon.icns" "$bundle/Contents/Resources/app-icon.icns"
