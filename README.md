@@ -1,5 +1,5 @@
 <p align="left">
-  <img src="assets/readme-logo.png" alt="Caude o'clock" width="310">
+  <img src="assets/readme-logo-outlined.png" alt="Caude o'clock" width="310">
 </p>
 
 ### Your Claude usage, quietly visible.
