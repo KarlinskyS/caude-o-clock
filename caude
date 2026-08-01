@@ -8,7 +8,7 @@
 set -euo pipefail
 
 readonly LABEL="com.karlinskys.caude-oc"
-readonly VERSION="0.2.5"
+readonly VERSION="0.2.6"
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 readonly PACKAGED_ROOT="/usr/local/lib/caude-o-clock"
 readonly APP_BUNDLE="/Applications/Caude o'clock.app"
@@ -29,8 +29,18 @@ xml_escape() {
         -e "s/'/\&apos;/g"
 }
 
+app_bundle_path() {
+    if [[ "$SCRIPT_DIR" == "$PACKAGED_ROOT" && -d "$APP_BUNDLE" ]]; then
+        printf '%s\n' "$APP_BUNDLE"
+    elif [[ -d "$SCRIPT_DIR/Caude o'clock.app" ]]; then
+        printf '%s\n' "$SCRIPT_DIR/Caude o'clock.app"
+    else
+        return 1
+    fi
+}
+
 uses_app_bundle() {
-    [[ "$SCRIPT_DIR" == "$PACKAGED_ROOT" && -d "$APP_BUNDLE" ]]
+    app_bundle_path >/dev/null 2>&1
 }
 
 python_path() {
@@ -137,8 +147,10 @@ install_and_start_agent() {
 }
 
 runner_is_alive() {
+    local bundle
     if uses_app_bundle; then
-        pgrep -f "/Caude o'clock.app/Contents/MacOS/" >/dev/null 2>&1
+        bundle="$(app_bundle_path)"
+        pgrep -f "$bundle/Contents/MacOS/" >/dev/null 2>&1
     else
         pgrep -f "${SCRIPT_DIR}/ccusagebar.py" >/dev/null 2>&1
     fi
@@ -203,8 +215,12 @@ start() {
 }
 
 run() {
-    if uses_app_bundle; then
-        exec "$APP_BUNDLE/Contents/MacOS/Caude o'clock"
+    local bundle
+    if bundle="$(app_bundle_path)"; then
+        # LaunchServices registers the app with the active macOS GUI session,
+        # which is required for a status-bar app to reliably receive a menu
+        # bar item. Running its executable directly bypasses that registration.
+        exec /usr/bin/open -gja "$bundle"
     fi
 
     local runner_python
