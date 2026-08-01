@@ -23,8 +23,8 @@ python3 -m venv .venv
 ./.venv/bin/python ccusagebar.py
 ```
 
-An icon (`⏳ NN%`) appears in the menu bar. Click it for the usage card;
-click elsewhere to dismiss.
+A ghost-with-a-pocket-watch icon and a percentage (`NN%`) appear in the
+menu bar. Click it for the usage card; click elsewhere to dismiss.
 
 ## Run at login (launchd)
 
