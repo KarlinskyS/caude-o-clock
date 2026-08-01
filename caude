@@ -1,0 +1,215 @@
+#!/bin/bash
+# Caude o'clock command-line entry point.
+#
+# This launcher deliberately exposes only `start`: once the menu-bar app is
+# running, the user controls it from its popover.  It works from a Homebrew
+# installation, a cloned checkout, and the unsigned macOS package.
+
+set -euo pipefail
+
+readonly LABEL="com.karlinskys.caude-oc"
+readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+readonly PACKAGED_ROOT="/usr/local/lib/caude-o-clock"
+readonly APP_BUNDLE="/Applications/Caude o'clock.app"
+readonly AGENT_PATH="$HOME/Library/LaunchAgents/${LABEL}.plist"
+readonly LOG_DIR="$HOME/Library/Logs/CaudeOClock"
+
+die() {
+    printf 'caude: %s\n' "$*" >&2
+    exit 1
+}
+
+xml_escape() {
+    printf '%s' "$1" | sed \
+        -e 's/&/\&amp;/g' \
+        -e 's/</\&lt;/g' \
+        -e 's/>/\&gt;/g' \
+        -e 's/"/\&quot;/g' \
+        -e "s/'/\&apos;/g"
+}
+
+uses_app_bundle() {
+    [[ "$SCRIPT_DIR" == "$PACKAGED_ROOT" && -d "$APP_BUNDLE" ]]
+}
+
+python_path() {
+    if [[ -x "$SCRIPT_DIR/venv/bin/python" ]]; then
+        printf '%s\n' "$SCRIPT_DIR/venv/bin/python"
+    elif [[ -x "$SCRIPT_DIR/.venv/bin/python" ]]; then
+        printf '%s\n' "$SCRIPT_DIR/.venv/bin/python"
+    else
+        return 1
+    fi
+}
+
+prepare_clone_environment() {
+    local system_python
+    system_python="$(command -v python3 || true)"
+    [[ -n "$system_python" ]] || die "Python 3 is required. Install it, then run ./caude start again."
+
+    if [[ ! -x "$SCRIPT_DIR/.venv/bin/python" ]]; then
+        printf 'Preparing Caude o\047clock…\n'
+        "$system_python" -m venv "$SCRIPT_DIR/.venv"
+    fi
+
+    if ! "$SCRIPT_DIR/.venv/bin/python" -c 'import AppKit' >/dev/null 2>&1; then
+        printf 'Installing required components…\n'
+        "$SCRIPT_DIR/.venv/bin/python" -m pip install --disable-pip-version-check -r "$SCRIPT_DIR/requirements.txt"
+    fi
+}
+
+ensure_runner() {
+    if uses_app_bundle; then
+        return
+    fi
+
+    if ! python_path >/dev/null; then
+        prepare_clone_environment
+    fi
+
+    [[ -f "$SCRIPT_DIR/ccusagebar.py" ]] || die "Application files are missing from $SCRIPT_DIR."
+}
+
+write_launch_agent() {
+    local escaped_runner escaped_root escaped_log escaped_error
+    local runner="$SCRIPT_DIR/caude"
+
+    mkdir -p "$(dirname "$AGENT_PATH")" "$LOG_DIR"
+    escaped_runner="$(xml_escape "$runner")"
+    escaped_root="$(xml_escape "$SCRIPT_DIR")"
+    escaped_log="$(xml_escape "$LOG_DIR/caude.log")"
+    escaped_error="$(xml_escape "$LOG_DIR/caude.err.log")"
+
+    umask 077
+    printf '%s\n' \
+        '<?xml version="1.0" encoding="UTF-8"?>' \
+        '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' \
+        '<plist version="1.0">' \
+        '<dict>' \
+        '  <key>Label</key>' \
+        "  <string>$LABEL</string>" \
+        '  <key>ProgramArguments</key>' \
+        '  <array>' \
+        "    <string>$escaped_runner</string>" \
+        '    <string>run</string>' \
+        '  </array>' \
+        '  <key>WorkingDirectory</key>' \
+        "  <string>$escaped_root</string>" \
+        '  <key>RunAtLoad</key>' \
+        '  <true/>' \
+        '  <key>KeepAlive</key>' \
+        '  <dict>' \
+        '    <key>SuccessfulExit</key>' \
+        '    <false/>' \
+        '  </dict>' \
+        '  <key>StandardOutPath</key>' \
+        "  <string>$escaped_log</string>" \
+        '  <key>StandardErrorPath</key>' \
+        "  <string>$escaped_error</string>" \
+        '</dict>' \
+        '</plist>' > "$AGENT_PATH"
+
+    plutil -lint "$AGENT_PATH" >/dev/null || die "Could not create a valid launchd configuration."
+}
+
+install_and_start_agent() {
+    local domain="gui/$(id -u)"
+
+    write_launch_agent
+    # A fresh definition is intentional: `caude start` must follow a cloned
+    # checkout that has been moved or upgraded, rather than retaining stale
+    # paths in an older launchd job.
+    launchctl bootout "$domain/$LABEL" >/dev/null 2>&1 || true
+    launchctl bootstrap "$domain" "$AGENT_PATH"
+    launchctl kickstart -k "$domain/$LABEL"
+}
+
+runner_is_alive() {
+    if uses_app_bundle; then
+        pgrep -f "/Caude o'clock.app/Contents/MacOS/" >/dev/null 2>&1
+    else
+        pgrep -f "${SCRIPT_DIR}/ccusagebar.py" >/dev/null 2>&1
+    fi
+}
+
+wait_for_runner() {
+    local attempt
+    for attempt in {1..25}; do
+        if runner_is_alive; then
+            return 0
+        fi
+        sleep 0.2
+    done
+    return 1
+}
+
+print_banner() {
+    local blue='' reset=''
+    if [[ -t 1 ]]; then
+        blue=$'\033[38;5;39m'
+        reset=$'\033[0m'
+    fi
+
+    printf '%s\n' "${blue}╔══════════════════════════════════════════════════════════════════════════════════════════╗${reset}"
+    printf '%s\n' "${blue}║                                                                                          ║${reset}"
+    printf '%s\n' "${blue}║        .-\"\"\"\"\"\"-.                         ┌─────────────┐                        ║${reset}"
+    printf '%s\n' "${blue}║     .-'            '-.                      ╭──┤    10:10    ├──╮                     ║${reset}"
+    printf '%s\n' "${blue}║    /     ( o    o )    \\                    │  └──────┬──────┘  │                     ║${reset}"
+    printf '%s\n' "${blue}║   |          __         |                   │         ◷         │   CAUDE O'CLOCK      ║${reset}"
+    printf '%s\n' "${blue}║   |        .'  '.       |                   ╰───────────────────╯                     ║${reset}"
+    printf '%s\n' "${blue}║    \\      /  ~~~~ \\     /                                                        ║${reset}"
+    printf '%s\n' "${blue}║     '._   \______/  _.'                 is running in your menu bar.                   ║${reset}"
+    printf '%s\n' "${blue}║        '---.____.---'                    Happy development!                            ║${reset}"
+    printf '%s\n' "${blue}║           ~  ~  ~                                                                  ║${reset}"
+    printf '%s\n' "${blue}║                                                                                          ║${reset}"
+    printf '%s\n' "${blue}╚══════════════════════════════════════════════════════════════════════════════════════════╝${reset}"
+}
+
+start() {
+    [[ "$(uname -s)" == "Darwin" ]] || die "Caude o'clock runs on macOS only."
+    ensure_runner
+
+    # Do not create a second status-bar icon if the app was already opened
+    # directly or by an earlier `caude start` invocation.
+    if runner_is_alive; then
+        print_banner
+        return
+    fi
+
+    install_and_start_agent
+
+    if wait_for_runner; then
+        print_banner
+        return
+    fi
+
+    printf 'Caude o\047clock could not start. Check %s/caude.err.log\n' "$LOG_DIR" >&2
+    exit 1
+}
+
+run() {
+    if uses_app_bundle; then
+        exec "$APP_BUNDLE/Contents/MacOS/Caude o'clock"
+    fi
+
+    local runner_python
+    runner_python="$(python_path)" || die "Python environment is not prepared. Run caude start from the application directory."
+    exec "$runner_python" "$SCRIPT_DIR/ccusagebar.py"
+}
+
+case "${1:-}" in
+    start)
+        [[ $# -eq 1 ]] || die "Usage: caude start"
+        start
+        ;;
+    run)
+        [[ $# -eq 1 ]] || die "Internal command."
+        run
+        ;;
+    ''|-h|--help|help)
+        printf 'Usage: caude start\n\nStart Caude o\047clock in the macOS menu bar.\n'
+        ;;
+    *)
+        die "Unknown command: $1. Use: caude start"
+        ;;
+esac

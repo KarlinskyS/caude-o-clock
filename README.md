@@ -9,76 +9,94 @@ It reuses the OAuth token Claude Code's CLI already stores in the macOS
 Keychain (after you run `claude login`) — no browser cookies, no separate
 login flow.
 
+<p align="center">
+  <img src="assets/caude-o-clock-banner.png" alt="Caude o'clock ghost with a pocket watch" width="768">
+</p>
+
 ## Requirements
 
 - macOS
 - Python 3
 - Claude Code CLI installed and logged in at least once (`claude login`)
 
-## Install via Homebrew
+## Install
+
+<p>
+  <a href="https://github.com/KarlinskyS/caude-o-clock/releases/latest/download/Caude-o-clock.pkg">
+    <img src="https://img.shields.io/badge/Download-macOS-0A84FF?style=for-the-badge&logo=apple&logoColor=white" alt="Download for macOS">
+  </a>
+</p>
+
+### Homebrew
 
 ```bash
-brew install KarlinskyS/caude-oc/coc
-brew services start coc   # runs at login, replaces the manual launchd setup below
+brew install KarlinskyS/caude-oc/caude-oc
+caude start
 ```
 
-The formula (`karlinskys/caude-oc/coc`, from the
+Homebrew requires the final formula name, so the command intentionally has
+three segments. The formula (`karlinskys/caude-oc/caude-oc`, from the
 [homebrew-caude-oc](https://github.com/KarlinskyS/homebrew-caude-oc) tap)
-pulls source from this repo's `v0.1.0` git tag. It creates its own Python
-venv under the Homebrew Cellar and installs `pyobjc-framework-Cocoa` into
-it; no separate `python3 -m venv` step needed.
+pulls a tagged source release. It creates its own Python venv under the
+Homebrew Cellar and installs `pyobjc-framework-Cocoa` into it. `caude start`
+registers the app for your macOS login, starts it, prints its terminal splash
+screen, and then returns control to the terminal.
 
-## Setup (manual, without Homebrew)
+### Download for macOS
 
-```bash
-python3 -m venv .venv
-./.venv/bin/pip install -r requirements.txt
-./.venv/bin/python ccusagebar.py
-```
-
-A ghost-with-a-pocket-watch icon and a percentage (`NN%`) appear in the
-menu bar. Click it for the usage card; click elsewhere to dismiss.
-
-## Run at login (launchd, manual setup only)
-
-Skip this if you installed via Homebrew — `brew services start coc` already
-covers it.
-
-Create `~/Library/LaunchAgents/com.yourname.ccusagebar.plist`, substituting
-your own paths:
-
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>Label</key>
-    <string>com.yourname.ccusagebar</string>
-    <key>ProgramArguments</key>
-    <array>
-        <string>/absolute/path/to/caude-o-clock/.venv/bin/python</string>
-        <string>/absolute/path/to/caude-o-clock/ccusagebar.py</string>
-    </array>
-    <key>WorkingDirectory</key>
-    <string>/absolute/path/to/caude-o-clock</string>
-    <key>RunAtLoad</key>
-    <true/>
-    <key>KeepAlive</key>
-    <dict>
-        <key>SuccessfulExit</key>
-        <false/>
-    </dict>
-    <key>StandardOutPath</key>
-    <string>/absolute/path/to/caude-o-clock/ccusagebar.log</string>
-    <key>StandardErrorPath</key>
-    <string>/absolute/path/to/caude-o-clock/ccusagebar.err.log</string>
-</dict>
-</plist>
-```
+Use the **Download for macOS** button above to download the latest `.pkg`.
+Open it and follow the installer steps, then open Terminal and run:
 
 ```bash
-launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.yourname.ccusagebar.plist
+caude start
 ```
+
+The package contains the app and its Python runtime, so it does not require
+Homebrew, Git, or Python knowledge.
+
+#### Why macOS shows a security warning
+
+This package is deliberately **unsigned and not notarized**: the project does
+not currently have an Apple Developer ID. macOS may say that it cannot verify
+the developer. This does not prevent installation if you have decided to trust
+the release: try to open the package once, then go to **System Settings →
+Privacy & Security** and choose **Open Anyway**. Download releases only from
+this repository and review the source if you are unsure.
+
+When the project obtains an Apple Developer ID, the release package will be
+signed and notarized instead.
+
+### Clone from GitHub
+
+```bash
+git clone https://github.com/KarlinskyS/caude-o-clock.git
+cd caude-o-clock
+./caude start
+```
+
+The first start creates a local virtual environment and installs the required
+Python packages. Later starts use that environment. The `./` is intentional:
+it runs the launcher from the cloned folder without changing your global PATH.
+
+## Start and control
+
+After `caude start`, a ghost-with-a-pocket-watch icon and a percentage (`NN%`)
+appear in the macOS menu bar. Click it for the usage card; click elsewhere to
+dismiss. Use the app's own menu to refresh or quit it — there are intentionally
+no command-line `status` or `stop` commands.
+
+`caude start` also arranges for the app to start at your next macOS login.
+
+## Build the unsigned release package
+
+Maintainers can create the GitHub Release asset locally on macOS:
+
+```bash
+scripts/build-pkg.sh 0.1.1
+```
+
+It creates `release/Caude-o-clock.pkg`. The GitHub Actions workflow performs
+the same build and attaches that file whenever a `v*` tag is pushed.
 
 ## Notes / caveats
 

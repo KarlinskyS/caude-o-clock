@@ -1,0 +1,19 @@
+#!/bin/bash
+# Avoid replacing an unrelated executable that happens to be named `caude`.
+
+set -euo pipefail
+
+readonly TARGET="/usr/local/bin/caude"
+readonly EXPECTED="/usr/local/lib/caude-o-clock/caude"
+
+if [[ -e "$TARGET" && ! -L "$TARGET" ]] && ! /usr/bin/grep -Fq "$EXPECTED" "$TARGET"; then
+    printf 'Caude o\047clock cannot install because %s belongs to another application.\n' "$TARGET" >&2
+    printf 'Move that file, then run this installer again.\n' >&2
+    exit 1
+fi
+
+if [[ -L "$TARGET" && "$(/usr/bin/readlink "$TARGET")" != "$EXPECTED" ]]; then
+    printf 'Caude o\047clock cannot install because %s belongs to another application.\n' "$TARGET" >&2
+    printf 'Move that file, then run this installer again.\n' >&2
+    exit 1
+fi

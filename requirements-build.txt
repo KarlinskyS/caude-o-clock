@@ -1,0 +1,3 @@
+-r requirements.txt
+setuptools<81
+py2app==0.28.8
