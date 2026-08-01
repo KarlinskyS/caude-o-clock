@@ -93,6 +93,10 @@ write_launch_agent() {
         "    <string>$escaped_runner</string>" \
         '    <string>run</string>' \
         '  </array>' \
+        '  <key>AssociatedBundleIdentifiers</key>' \
+        '  <array>' \
+        '    <string>com.karlinskys.caude-oc</string>' \
+        '  </array>' \
         '  <key>WorkingDirectory</key>' \
         "  <string>$escaped_root</string>" \
         '  <key>RunAtLoad</key>' \
