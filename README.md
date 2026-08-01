@@ -17,32 +17,16 @@ dashboard or login.
   </a>
 </p>
 
+### Other ways to install
+
+| Homebrew | From GitHub |
+| --- | --- |
+| `brew install KarlinskyS/caude-oc/caude-oc`<br>`caude start` | `git clone https://github.com/KarlinskyS/caude-o-clock.git`<br>`cd caude-o-clock && ./caude start` |
+
 <img src="assets/readme-hero.png" alt="Caude o'clock menu-bar companion" width="880">
 
 After installation, run `caude start`. The app appears in the macOS menu bar;
 everything else happens from its popover.
-
-<details>
-<summary><strong>Other ways to install</strong></summary>
-
-**Homebrew**
-
-```bash
-brew install KarlinskyS/caude-oc/caude-oc
-caude start
-```
-
-**From GitHub**
-
-```bash
-git clone https://github.com/KarlinskyS/caude-o-clock.git
-cd caude-o-clock
-./caude start
-```
-
-The first source launch prepares its own Python environment. The `./` runs the
-launcher from the cloned folder without changing your global PATH.
-</details>
 
 <details>
 <summary><strong>Why macOS may show a security notice</strong></summary>
