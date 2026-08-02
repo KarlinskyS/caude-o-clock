@@ -288,11 +288,13 @@ Two kinds, both scoped to the 5-hour window only (not weekly):
   percent (`round(five.percent)`), not the threshold value itself — an
   earlier version accidentally showed the fixed threshold number, which
   looked "hardcoded" since it never matched the real number in the popup.
-- **Reset**: detected by `resets_at` moving to a later timestamp than the
-  previously observed one (not by any "is_active" field in the API
-  response — that field's semantics turned out to mean something else,
-  not "this window is fresh"). Clears the threshold-notified set so they
-  can refire in the new window.
+- **Reset**: detected only when `resets_at` moves more than one minute later
+  than the previously observed value. The endpoint returns sub-second clock
+  jitter around the same boundary, so treating any later timestamp as a reset
+  creates false notifications. This does not use the API's `is_active` field:
+  its semantics mean something else, not "this window is fresh". A detected
+  reset clears the threshold-notified set so thresholds can refire in the new
+  window.
 - Dedup state (`self._notified_thresholds`, `self._last_five_hour_percent`)
   lives **only in memory** — resets on every app restart, so a
   already-crossed threshold can renotify after a restart. Not currently

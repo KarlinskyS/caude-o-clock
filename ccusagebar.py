@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import sys
 import traceback
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import objc
@@ -41,6 +41,11 @@ from i18n import t as tr
 POLL_SECONDS = 300.0
 MIN_RETRY_SECONDS = 60.0
 THRESHOLDS = (50, 75, 90)
+# The undocumented endpoint has been observed returning the same reset
+# boundary with sub-second clock jitter. A reset notification needs a
+# materially later boundary, not a few milliseconds around the same one.
+RESET_TIME_JITTER_TOLERANCE = timedelta(minutes=1)
+RESET_PERCENT_DROP = 20
 CLAUDE_USAGE_URL = "https://claude.ai/settings/usage"
 MENUBAR_ICON_PATH = Path(__file__).resolve().parent / "assets" / "menubar-glyph.png"
 
@@ -393,7 +398,10 @@ class AppDelegate(NSObject):
 
     def _maybe_notify(self, usage):
         five = usage.five_hour
-        if self._last_five_hour_percent is not None and five.percent < self._last_five_hour_percent - 20:
+        if (
+            self._last_five_hour_percent is not None
+            and five.percent < self._last_five_hour_percent - RESET_PERCENT_DROP
+        ):
             self._notified_thresholds.clear()
 
         for threshold in THRESHOLDS:
@@ -408,7 +416,7 @@ class AppDelegate(NSObject):
         if (
             self._last_resets_at is not None
             and five.resets_at is not None
-            and five.resets_at > self._last_resets_at
+            and five.resets_at > self._last_resets_at + RESET_TIME_JITTER_TOLERANCE
         ):
             self._notified_thresholds.clear()
             notify(tr("notif_title"), tr("notif_reset_subtitle"), tr("notif_reset_message"))

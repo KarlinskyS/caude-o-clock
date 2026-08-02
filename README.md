@@ -18,6 +18,20 @@
   </a>
 </p>
 
+<table>
+  <tr>
+    <td width="60%" valign="middle">
+      <h3>Enjoying Caude o'clock?</h3>
+      <p>If it helps you stay on top of Claude usage, consider sponsoring its continued development.</p>
+    </td>
+    <td align="right" valign="middle">
+      <a href="https://github.com/sponsors/KarlinskyS">
+        <img src="https://img.shields.io/badge/Sponsor_on_GitHub-EA4AAA?style=for-the-badge&logo=githubsponsors&logoColor=white" alt="Sponsor Caude o'clock on GitHub">
+      </a>
+    </td>
+  </tr>
+</table>
+
 ### Install
 
 **Homebrew**<br>
