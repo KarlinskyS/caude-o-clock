@@ -42,7 +42,7 @@ To stop it later:
 ./caude stop
 ```
 
-<img src="assets/readme-hero.png" alt="Caude o'clock menu-bar companion" width="880">
+<img src="assets/readme-hero-anonymized.png" alt="Caude o'clock menu-bar companion" width="880">
 
 ### Use the menu-bar UI
 
