@@ -10,6 +10,8 @@
   </tr>
 </table>
 
+<img src="assets/readme-hero-anonymized.png" alt="Caude o'clock menu-bar companion" width="880">
+
 <p align="left">
   <a href="https://github.com/KarlinskyS/caude-o-clock">
     <img src="https://img.shields.io/badge/View_on_GitHub-101828?style=for-the-badge&logo=github&logoColor=white" alt="View on GitHub">
@@ -45,14 +47,16 @@ To stop it later:
 ./caude stop
 ```
 
-<img src="assets/readme-hero-anonymized.png" alt="Caude o'clock menu-bar companion" width="880">
-
 ### Use the menu-bar UI
 
 Once started, Caude o'clock appears in the macOS menu bar. Click its icon to
 open the popover and view usage or open claude.ai. Use the power icon in the
 popover to quit the current app session. Use `caude stop` (or `./caude stop`
 from a checkout) when you also want to disable its background launch.
+
+### License
+
+Released under the [MIT License](LICENSE).
 
 <details>
 <summary><strong>If the icon doesn't appear in the menu bar</strong></summary>
