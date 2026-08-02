@@ -8,15 +8,12 @@ Caude o'clock is a tiny macOS menu-bar companion for Claude Code: your 5-hour
 and weekly windows and reset times — without another dashboard or login.
 
 <p align="left">
-  <a href="https://github.com/KarlinskyS/caude-o-clock/releases/latest/download/Caude-o-clock.pkg">
-    <img src="https://img.shields.io/badge/Download_for_macOS-0A84FF?style=for-the-badge&logo=apple&logoColor=white" alt="Download for macOS">
-  </a>
   <a href="https://github.com/KarlinskyS/caude-o-clock">
     <img src="https://img.shields.io/badge/View_on_GitHub-101828?style=for-the-badge&logo=github&logoColor=white" alt="View on GitHub">
   </a>
 </p>
 
-### Other ways to install
+### Install
 
 **Homebrew**<br>
 ```bash
@@ -36,15 +33,6 @@ After installation, run `caude start`. The app appears in the macOS menu bar;
 everything else happens from its popover.
 
 <details>
-<summary><strong>Why macOS may show a security notice</strong></summary>
-
-The downloadable package is currently unsigned and not notarized because the
-project has no Apple Developer ID. If you trust this repository, try opening
-the package once, then select **Open Anyway** in **System Settings → Privacy &
-Security**. Download packages only from this repository.
-</details>
-
-<details>
 <summary><strong>If the icon doesn't appear in the menu bar</strong></summary>
 
 Rare, but seen: macOS's menu bar rendering can get into a bad state after
@@ -54,8 +42,7 @@ shown anywhere. This isn't specific to Caude o'clock; any menu-bar app can
 hit it. If `caude start` reports success but no icon shows up, try these
 in order (each is more disruptive than the last, so try them top-down):
 
-1. **Run `caude start` again** (or quit and reopen if you installed the
-   `.pkg`). This alone often clears it.
+1. **Run `caude start` again.** This alone often clears it.
 2. **Log out and log back in** — resets macOS's window/menu-bar system
    without a full restart.
 3. **Restart your Mac.**
@@ -65,6 +52,5 @@ in order (each is more disruptive than the last, so try them top-down):
 <details>
 <summary><strong>For contributors</strong></summary>
 
-Release, package-build, and implementation notes live in
-[docs/RELEASING.md](docs/RELEASING.md).
+Release notes live in [docs/RELEASING.md](docs/RELEASING.md).
 </details>
