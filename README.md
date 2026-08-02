@@ -1,79 +1,52 @@
-# Claude o'clock
+<p align="left">
+  <img src="assets/readme-logo-outlined.png" alt="Caude o'clock" width="310">
+</p>
 
-A macOS menu bar app that shows your Claude 5-hour / weekly usage windows,
-notifies you at 50/75/90% and when the 5-hour limit resets, and shows
-today's local message/token counts pulled from Claude Code's own session
-logs. Built from scratch on PyObjC/AppKit (no third-party menu bar toolkit).
+### Your Claude usage, quietly visible.
 
-It reuses the OAuth token Claude Code's CLI already stores in the macOS
-Keychain (after you run `claude login`) — no browser cookies, no separate
-login flow.
+Caude o'clock is a tiny macOS menu-bar companion for Claude Code: your 5-hour
+and weekly windows and reset times — without another dashboard or login.
 
-## Requirements
+<p align="left">
+  <a href="https://github.com/KarlinskyS/caude-o-clock/releases/latest/download/Caude-o-clock.pkg">
+    <img src="https://img.shields.io/badge/Download_for_macOS-0A84FF?style=for-the-badge&logo=apple&logoColor=white" alt="Download for macOS">
+  </a>
+  <a href="https://github.com/KarlinskyS/caude-o-clock">
+    <img src="https://img.shields.io/badge/View_on_GitHub-101828?style=for-the-badge&logo=github&logoColor=white" alt="View on GitHub">
+  </a>
+</p>
 
-- macOS
-- Python 3
-- Claude Code CLI installed and logged in at least once (`claude login`)
+### Other ways to install
 
-## Setup
-
+**Homebrew**<br>
 ```bash
-python3 -m venv .venv
-./.venv/bin/pip install -r requirements.txt
-./.venv/bin/python ccusagebar.py
+brew install KarlinskyS/caude-o-clock/caude && caude start
 ```
 
-A ghost-with-a-pocket-watch icon and a percentage (`NN%`) appear in the
-menu bar. Click it for the usage card; click elsewhere to dismiss.
+---
 
-## Run at login (launchd)
-
-Create `~/Library/LaunchAgents/com.yourname.ccusagebar.plist`, substituting
-your own paths:
-
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>Label</key>
-    <string>com.yourname.ccusagebar</string>
-    <key>ProgramArguments</key>
-    <array>
-        <string>/absolute/path/to/claude-o-clock/.venv/bin/python</string>
-        <string>/absolute/path/to/claude-o-clock/ccusagebar.py</string>
-    </array>
-    <key>WorkingDirectory</key>
-    <string>/absolute/path/to/claude-o-clock</string>
-    <key>RunAtLoad</key>
-    <true/>
-    <key>KeepAlive</key>
-    <dict>
-        <key>SuccessfulExit</key>
-        <false/>
-    </dict>
-    <key>StandardOutPath</key>
-    <string>/absolute/path/to/claude-o-clock/ccusagebar.log</string>
-    <key>StandardErrorPath</key>
-    <string>/absolute/path/to/claude-o-clock/ccusagebar.err.log</string>
-</dict>
-</plist>
-```
-
+**From GitHub**<br>
 ```bash
-launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.yourname.ccusagebar.plist
+git clone https://github.com/KarlinskyS/caude-o-clock.git && cd caude-o-clock && ./caude start
 ```
 
-## Notes / caveats
+<img src="assets/readme-hero.png" alt="Caude o'clock menu-bar companion" width="880">
 
-- Uses `https://api.anthropic.com/api/oauth/usage`, which is **not a
-  documented or officially supported** endpoint — it's the same one
-  claude.ai's own settings page calls internally, and it enforces its own
-  (undocumented) rate limit unrelated to your actual Claude usage. The app
-  polls gently (every 5 minutes, no fetch on popover open) and backs off on
-  `Retry-After` when rate-limited, but the endpoint could change without
-  notice.
-- Localized into English, Russian, Spanish, German, French, Portuguese,
-  Japanese, and Chinese — picked automatically from macOS's own ordered
-  language preferences (System Settings → General → Language & Region).
-  Override for testing: `CCUSAGE_LANG=ja ./.venv/bin/python ccusagebar.py`.
+After installation, run `caude start`. The app appears in the macOS menu bar;
+everything else happens from its popover.
+
+<details>
+<summary><strong>Why macOS may show a security notice</strong></summary>
+
+The downloadable package is currently unsigned and not notarized because the
+project has no Apple Developer ID. If you trust this repository, try opening
+the package once, then select **Open Anyway** in **System Settings → Privacy &
+Security**. Download packages only from this repository.
+</details>
+
+<details>
+<summary><strong>For contributors</strong></summary>
+
+Release, package-build, and implementation notes live in
+[docs/RELEASING.md](docs/RELEASING.md).
+</details>

@@ -1,0 +1,83 @@
+#!/bin/bash
+# Caude o'clock command-line entry point for a cloned checkout.
+#
+# Creates a local virtualenv on first run, then manages the menu-bar app as
+# a per-user launchd agent so it keeps running across logins.
+
+set -euo pipefail
+
+readonly LABEL="com.karlinskys.caude-oc"
+readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+readonly VENV="$SCRIPT_DIR/.venv"
+readonly AGENT_PATH="$HOME/Library/LaunchAgents/$LABEL.plist"
+readonly LOG_DIR="$HOME/Library/Logs/CaudeOClock"
+readonly DOMAIN="gui/$(id -u)"
+
+die() {
+    printf 'caude: %s\n' "$*" >&2
+    exit 1
+}
+
+ensure_venv() {
+    [[ "$(uname -s)" == "Darwin" ]] || die "Caude o'clock runs on macOS only."
+    if [[ ! -x "$VENV/bin/python3" ]]; then
+        printf "Setting up Caude o'clock (first run)…\n"
+        python3 -m venv "$VENV"
+        "$VENV/bin/pip" install --quiet -r "$SCRIPT_DIR/requirements.txt"
+    fi
+}
+
+write_launch_agent() {
+    mkdir -p "$(dirname "$AGENT_PATH")" "$LOG_DIR"
+    cat > "$AGENT_PATH" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>$LABEL</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>$VENV/bin/python3</string>
+    <string>$SCRIPT_DIR/ccusagebar.py</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>$SCRIPT_DIR</string>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <dict>
+    <key>SuccessfulExit</key>
+    <false/>
+  </dict>
+  <key>StandardOutPath</key>
+  <string>$LOG_DIR/caude.log</string>
+  <key>StandardErrorPath</key>
+  <string>$LOG_DIR/caude.err.log</string>
+</dict>
+</plist>
+PLIST
+    plutil -lint "$AGENT_PATH" >/dev/null || die "Could not create a valid launchd configuration."
+}
+
+start() {
+    ensure_venv
+    write_launch_agent
+    launchctl bootout "$DOMAIN/$LABEL" >/dev/null 2>&1 || true
+    launchctl bootstrap "$DOMAIN" "$AGENT_PATH" || die "Could not register the menu-bar service."
+    launchctl kickstart -k "$DOMAIN/$LABEL"
+    printf "Caude o'clock is running in your menu bar.\n"
+}
+
+stop() {
+    launchctl bootout "$DOMAIN/$LABEL" >/dev/null 2>&1 || true
+    printf "Stopped.\n"
+}
+
+case "${1:-}" in
+    start) [[ $# -eq 1 ]] || die "Usage: caude start"; start ;;
+    stop)  [[ $# -eq 1 ]] || die "Usage: caude stop"; stop ;;
+    ''|-h|--help|help)
+        printf "Usage: caude start|stop\n\nStart or stop Caude o'clock in the macOS menu bar.\n" ;;
+    *) die "Unknown command: $1. Use: caude start|stop" ;;
+esac
