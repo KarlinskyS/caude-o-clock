@@ -6,7 +6,7 @@
 
 set -euo pipefail
 
-readonly VERSION="1.0.0"
+readonly VERSION="1.0.2"
 readonly LABEL="com.karlinskys.caude-oc"
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 readonly VENV="$SCRIPT_DIR/.venv"
@@ -30,6 +30,24 @@ ensure_venv() {
 
 write_launch_agent() {
     mkdir -p "$(dirname "$AGENT_PATH")" "$LOG_DIR"
+    local mock_entries=''
+    local mock_environment=''
+    if [[ -n "${CCUSAGE_MOCK_429:-}" ]]; then
+        mock_entries="
+    <key>CCUSAGE_MOCK_429</key>
+    <string>$CCUSAGE_MOCK_429</string>"
+    fi
+    if [[ -n "${CCUSAGE_MOCK_NO_AUTH:-}" ]]; then
+        mock_entries+="
+    <key>CCUSAGE_MOCK_NO_AUTH</key>
+    <string>$CCUSAGE_MOCK_NO_AUTH</string>"
+    fi
+    if [[ -n "$mock_entries" ]]; then
+        mock_environment="
+  <key>EnvironmentVariables</key>
+  <dict>$mock_entries
+  </dict>"
+    fi
     cat > "$AGENT_PATH" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -44,6 +62,7 @@ write_launch_agent() {
   </array>
   <key>WorkingDirectory</key>
   <string>$SCRIPT_DIR</string>
+$mock_environment
   <key>RunAtLoad</key>
   <true/>
   <key>KeepAlive</key>
@@ -105,6 +124,12 @@ start() {
     # process for no benefit, and cost several extra seconds waiting for it
     # to shut down cleanly first.
     launchctl bootstrap "$DOMAIN" "$AGENT_PATH" || die "Could not register the menu-bar service."
+    if [[ -n "${CCUSAGE_MOCK_429:-}" ]]; then
+        printf 'Rate-limit mock enabled (429; Retry-After: %ss).\n' "$CCUSAGE_MOCK_429"
+    fi
+    if [[ -n "${CCUSAGE_MOCK_NO_AUTH:-}" ]]; then
+        printf 'No-authentication mock enabled.\n'
+    fi
     print_banner
 }
 
@@ -116,7 +141,17 @@ stop() {
 case "${1:-}" in
     start) [[ $# -eq 1 ]] || die "Usage: caude start"; start ;;
     stop)  [[ $# -eq 1 ]] || die "Usage: caude stop"; stop ;;
+    --run-error-429)
+        [[ $# -eq 1 ]] || die "Usage: caude --run-error-429"
+        export CCUSAGE_MOCK_429=234
+        start
+        ;;
+    --run-error-no-auth)
+        [[ $# -eq 1 ]] || die "Usage: caude --run-error-no-auth"
+        export CCUSAGE_MOCK_NO_AUTH=1
+        start
+        ;;
     ''|-h|--help|help)
-        printf "Usage: caude start|stop\n\nStart or stop Caude o'clock in the macOS menu bar.\n" ;;
-    *) die "Unknown command: $1. Use: caude start|stop" ;;
+        printf "Usage: caude start|stop|--run-error-429|--run-error-no-auth\n\nStart or stop Caude o'clock in the macOS menu bar.\n" ;;
+    *) die "Unknown command: $1. Use: caude start|stop|--run-error-429|--run-error-no-auth" ;;
 esac

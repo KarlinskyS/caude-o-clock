@@ -17,20 +17,39 @@ and weekly windows and reset times — without another dashboard or login.
 
 **Homebrew**<br>
 ```bash
-brew install KarlinskyS/caude-o-clock/caude && caude start
+brew install KarlinskyS/caude-o-clock/caude
+caude start
+```
+
+To stop it later:
+
+```bash
+caude stop
 ```
 
 ---
 
 **From GitHub**<br>
 ```bash
-git clone https://github.com/KarlinskyS/caude-o-clock.git && cd caude-o-clock && ./caude start
+git clone https://github.com/KarlinskyS/caude-o-clock.git
+cd caude-o-clock
+./caude start
+```
+
+To stop it later:
+
+```bash
+./caude stop
 ```
 
 <img src="assets/readme-hero.png" alt="Caude o'clock menu-bar companion" width="880">
 
-After installation, run `caude start`. The app appears in the macOS menu bar;
-everything else happens from its popover.
+### Use the menu-bar UI
+
+Once started, Caude o'clock appears in the macOS menu bar. Click its icon to
+open the popover and view usage or open claude.ai. Use the power icon in the
+popover to quit the current app session. Use `caude stop` (or `./caude stop`
+from a checkout) when you also want to disable its background launch.
 
 <details>
 <summary><strong>If the icon doesn't appear in the menu bar</strong></summary>
@@ -53,4 +72,14 @@ in order (each is more disruptive than the last, so try them top-down):
 <summary><strong>For contributors</strong></summary>
 
 Release notes live in [docs/RELEASING.md](docs/RELEASING.md).
+
+To inspect error states from a cloned checkout without reading Keychain
+credentials or calling the API:
+
+```bash
+./caude --run-error-429      # API rate-limit error
+./caude --run-error-no-auth  # not signed in error
+```
+
+Return to normal operation with `./caude stop` followed by `./caude start`.
 </details>

@@ -101,6 +101,8 @@ class AppDelegate(NSObject):
         self._usage = None
         self._today = None
         self._last_error = None
+        self._last_error_title = None
+        self._last_error_detail = None
         self._overlay_level = None
         return self
 
@@ -293,17 +295,23 @@ class AppDelegate(NSObject):
             self._usage = fetch_usage()
             self._today = today_stats()
             self._last_error = None
+            self._last_error_title = None
+            self._last_error_detail = None
             self._maybe_notify(self._usage)
             self._last_five_hour_percent = self._usage.five_hour.percent
             self._last_resets_at = self._usage.five_hour.resets_at
         except CredentialsError as e:
             log_error("fetch_usage failed", e)
             self._last_error = str(e)
+            self._last_error_title = getattr(e, "title", None)
+            self._last_error_detail = getattr(e, "detail", None)
             retry_after = getattr(e, "retry_after", None)
             next_delay = max(retry_after + 20, MIN_RETRY_SECONDS) if retry_after else MIN_RETRY_SECONDS
         except Exception as e:
             log_error("fetch_usage failed (unexpected)", e)
             self._last_error = tr("err_unexpected", err=e)
+            self._last_error_title = None
+            self._last_error_detail = None
             next_delay = MIN_RETRY_SECONDS
 
         self._render()
@@ -316,7 +324,7 @@ class AppDelegate(NSObject):
             button = self.status_item.button()
             button.setImage_(None)
             button.setTitle_("⚠️")
-            self._render_error(self._last_error)
+            self._render_error(self._last_error, self._last_error_title, self._last_error_detail)
             return
 
         usage, today = self._usage, self._today
@@ -328,39 +336,54 @@ class AppDelegate(NSObject):
             format_updated_at(datetime.now(timezone.utc)),
             usage.plan,
             self,
-            objc.selector(self.refresh_, signature=b"v@:@"),
             objc.selector(self.openBrowser_, signature=b"v@:@"),
             objc.selector(self.quit_, signature=b"v@:@"),
         )
         self.view_controller.setView_(card)
         self.popover.setContentSize_(card.frame().size)
 
-    def _render_error(self, message: str):
-        from card_view import _label, _link_button, _bordered_button, FlippedView, CARD_WIDTH, PAD_X
-        from AppKit import NSMakeRect, NSColor
+    def _render_error(self, message: str, title: str | None = None, detail: str | None = None):
+        from card_view import _label, _link_button, _symbol_button, FlippedView, CARD_WIDTH, PAD_X
+        from AppKit import NSMakeRect, NSColor, NSLineBreakByWordWrapping
 
-        label = _label(message, size=12, color=NSColor.secondaryLabelColor())
-        label.setFrameOrigin_((PAD_X, 18))
-        label.setFrame_(NSMakeRect(PAD_X, 18, CARD_WIDTH - 2 * PAD_X, 40))
+        quit_btn = _symbol_button(
+            "power", self, objc.selector(self.quit_, signature=b"v@:@"), tr("quit"),
+        )
+        quit_x = CARD_WIDTH - PAD_X - quit_btn.frame().size.width
+        quit_btn.setFrameOrigin_((quit_x, 12))
 
-        btn_y = 18 + 40 + 16
-        # Icon-only, borderless -- just the ⟳ glyph, no button chrome.
-        # Tooltip carries the label for accessibility.
+        # Reserve the top-right corner for Quit and let every localized
+        # error message wrap instead of being truncated.
+        label_width = quit_x - PAD_X - 8
+        label_y = 18
+        title_label = None
+        if title:
+            title_label = _label(title, size=14, weight="semibold")
+            title_label.setFrame_(NSMakeRect(PAD_X, label_y, label_width, title_label.frame().size.height))
+            label_y += title_label.frame().size.height + 4
+
+        label = _label(detail or message, size=12, color=NSColor.secondaryLabelColor())
+        label_cell = label.cell()
+        label_cell.setWraps_(True)
+        label_cell.setUsesSingleLineMode_(False)
+        label.setMaximumNumberOfLines_(0)
+        label_cell.setLineBreakMode_(NSLineBreakByWordWrapping)
+        label_height = label_cell.cellSizeForBounds_(
+            NSMakeRect(0, 0, label_width, 1000),
+        ).height
+        label.setFrame_(NSMakeRect(PAD_X, label_y, label_width, label_height))
+
+        # Large retry affordance follows the error copy immediately.
+        btn_y = label_y + label_height + 2
         retry_btn = _link_button(
-            "⟳", 20, self, objc.selector(self.refresh_, signature=b"v@:@"),
+            "⟳", 28, self, objc.selector(self.refresh_, signature=b"v@:@"),
         )
         retry_btn.setToolTip_(tr("refresh"))
-        retry_btn.setFrameOrigin_((PAD_X, btn_y))
-
-        quit_btn = _bordered_button(
-            tr("quit"), self, objc.selector(self.quit_, signature=b"v@:@"), size=13,
-        )
-        quit_btn.setFrameOrigin_((
-            CARD_WIDTH - PAD_X - quit_btn.frame().size.width,
-            btn_y + (retry_btn.frame().size.height - quit_btn.frame().size.height) / 2,
-        ))
+        retry_btn.setFrameOrigin_(((CARD_WIDTH - retry_btn.frame().size.width) / 2, btn_y))
 
         view = FlippedView.alloc().initWithFrame_(NSMakeRect(0, 0, CARD_WIDTH, btn_y + retry_btn.frame().size.height + 18))
+        if title_label is not None:
+            view.addSubview_(title_label)
         view.addSubview_(label)
         view.addSubview_(retry_btn)
         view.addSubview_(quit_btn)
