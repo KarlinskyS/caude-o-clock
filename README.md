@@ -1,11 +1,14 @@
-<p align="left">
-  <img src="assets/readme-logo-outlined.png" alt="Caude o'clock" width="310">
-</p>
-
-### Your Claude usage, quietly visible.
-
-Caude o'clock is a tiny macOS menu-bar companion for Claude Code: your 5-hour
-and weekly windows and reset times — without another dashboard or login.
+<table>
+  <tr>
+    <td width="60%" valign="middle">
+      <h3>Your Claude usage, quietly visible.</h3>
+      <p>Caude o'clock is a tiny macOS menu-bar companion for Claude Code: your 5-hour and weekly windows and reset times — without another dashboard or login.</p>
+    </td>
+    <td align="right" valign="middle">
+      <img src="assets/readme-logo-outlined.png" alt="Caude o'clock" width="310">
+    </td>
+  </tr>
+</table>
 
 <p align="left">
   <a href="https://github.com/KarlinskyS/caude-o-clock">
