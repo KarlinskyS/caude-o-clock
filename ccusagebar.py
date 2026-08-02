@@ -16,13 +16,14 @@ from pathlib import Path
 import objc
 from AppKit import (
     NSApplication, NSApplicationActivationPolicyAccessory, NSStatusBar,
-    NSViewController, NSPopover, NSPopoverBehaviorTransient, NSObject,
+    NSViewController, NSPopover, NSPopoverBehaviorApplicationDefined, NSObject,
     NSWorkspace, NSURL, NSUserNotification, NSUserNotificationCenter,
     NSMakeRect, NSMinYEdge, NSView, NSWindow, NSScreen, NSColor,
     NSWindowStyleMaskBorderless, NSBackingStoreBuffered,
     NSWindowCollectionBehaviorCanJoinAllSpaces, NSWindowCollectionBehaviorStationary,
     NSWindowCollectionBehaviorIgnoresCycle, NSWindowCollectionBehaviorFullScreenAuxiliary,
     NSEvent, NSEventMaskLeftMouseDown, NSEventMaskRightMouseDown,
+    NSEventMaskLeftMouseUp, NSEventMaskRightMouseUp,
     NSImage, NSMakeSize, NSImageLeft,
 )
 from Foundation import NSTimer
@@ -115,9 +116,27 @@ class AppDelegate(NSObject):
         button.setTitle_(" …")
         button.setTarget_(self)
         button.setAction_(objc.selector(self.toggle_, signature=b"v@:@"))
+        # NSStatusBarButton only fires its action on a left click by
+        # default. Right click should do the same thing (open/close the
+        # popover), not show a separate context menu -- there isn't one.
+        # Asymmetric on purpose: left=Down, right=Up. Matches a documented
+        # NSStatusItem highlight-desync workaround (see "Icon highlight
+        # while popover is open" in CLAUDE.md) -- doesn't fix the double
+        # blink on its own, but is the combination least likely to also
+        # cause the *other*, separate stuck-highlight-on-right-click bug
+        # that motivated it in the first place.
+        button.sendActionOn_(NSEventMaskLeftMouseDown | NSEventMaskRightMouseUp)
 
         self.popover = NSPopover.alloc().init()
-        self.popover.setBehavior_(NSPopoverBehaviorTransient)
+        # ApplicationDefined, not Transient: Transient's *own* built-in
+        # outside-click dismissal stayed active alongside our custom
+        # overlay/global-monitor system below, and the two raced on right
+        # clicks specifically (AppKit appears to special-case "click the
+        # anchor button again" only for left clicks under Transient) --
+        # toggle_ would reopen a popover Transient had just auto-closed out
+        # from under it. ApplicationDefined disables Apple's own dismissal
+        # entirely, leaving our system as the single source of truth.
+        self.popover.setBehavior_(NSPopoverBehaviorApplicationDefined)
         self.popover.setAnimates_(False)
         self.view_controller = NSViewController.alloc().init()
         self.popover.setContentViewController_(self.view_controller)
@@ -214,8 +233,25 @@ class AppDelegate(NSObject):
         self.status_item.button().setHighlighted_(False)
 
     def handleOutsideClick_(self, event):
-        if self.popover.isShown():
-            self.dismissPopover_(event)
+        if not self.popover.isShown():
+            return
+        # This is a *global* monitor -- it fires for every left/right
+        # mouseDown on screen, including ones landing on our own status
+        # item button. Since the button itself now also fires its action
+        # on mouseDown (needed for right-click, see applicationDidFinishLaunching_),
+        # a click on the button while the popover is open would otherwise
+        # race both handlers. Skip clicks inside the button's own screen
+        # frame and let toggle_ be the single source of truth for them.
+        button = self.status_item.button()
+        button_window = button.window()
+        if button_window is not None:
+            bounds_in_window = button.convertRect_toView_(button.bounds(), None)
+            frame = button_window.convertRectToScreen_(bounds_in_window)
+            loc = NSEvent.mouseLocation()
+            if (frame.origin.x <= loc.x <= frame.origin.x + frame.size.width
+                    and frame.origin.y <= loc.y <= frame.origin.y + frame.size.height):
+                return
+        self.dismissPopover_(event)
 
     def toggle_(self, sender):
         if self.popover.isShown():
@@ -235,10 +271,10 @@ class AppDelegate(NSObject):
         # doesn't exist until it's been shown at least once, and showOverlay
         # needs that window (to read its level) the first time it runs.
         self.showOverlay()
-        # The button's own mouseDown tracking loop resets highlighted=NO as
-        # it wraps up *after* this action method returns, so setting it here
-        # directly gets immediately overwritten. Defer to the next runloop
-        # tick, once that tracking loop has actually finished.
+        # See "Icon highlight while popover is open" in CLAUDE.md: this
+        # deferred re-highlight is a known source of a visible double
+        # blink, not fully resolved. Kept because it's still better than
+        # no persistent highlight at all.
         NSTimer.scheduledTimerWithTimeInterval_target_selector_userInfo_repeats_(
             0.0, self, objc.selector(self.applyHighlight_, signature=b"v@:@"), None, False
         )
@@ -300,13 +336,35 @@ class AppDelegate(NSObject):
         self.popover.setContentSize_(card.frame().size)
 
     def _render_error(self, message: str):
-        from card_view import _label, FlippedView
+        from card_view import _label, _link_button, _bordered_button, FlippedView, CARD_WIDTH, PAD_X
         from AppKit import NSMakeRect, NSColor
-        view = FlippedView.alloc().initWithFrame_(NSMakeRect(0, 0, 300, 70))
+
         label = _label(message, size=12, color=NSColor.secondaryLabelColor())
-        label.setFrameOrigin_((18, 18))
-        label.setFrame_(NSMakeRect(18, 18, 264, 40))
+        label.setFrameOrigin_((PAD_X, 18))
+        label.setFrame_(NSMakeRect(PAD_X, 18, CARD_WIDTH - 2 * PAD_X, 40))
+
+        btn_y = 18 + 40 + 16
+        # Icon-only, borderless -- just the ⟳ glyph, no button chrome.
+        # Tooltip carries the label for accessibility.
+        retry_btn = _link_button(
+            "⟳", 20, self, objc.selector(self.refresh_, signature=b"v@:@"),
+        )
+        retry_btn.setToolTip_(tr("refresh"))
+        retry_btn.setFrameOrigin_((PAD_X, btn_y))
+
+        quit_btn = _bordered_button(
+            tr("quit"), self, objc.selector(self.quit_, signature=b"v@:@"), size=13,
+        )
+        quit_btn.setFrameOrigin_((
+            CARD_WIDTH - PAD_X - quit_btn.frame().size.width,
+            btn_y + (retry_btn.frame().size.height - quit_btn.frame().size.height) / 2,
+        ))
+
+        view = FlippedView.alloc().initWithFrame_(NSMakeRect(0, 0, CARD_WIDTH, btn_y + retry_btn.frame().size.height + 18))
         view.addSubview_(label)
+        view.addSubview_(retry_btn)
+        view.addSubview_(quit_btn)
+
         self.view_controller.setView_(view)
         self.popover.setContentSize_(view.frame().size)
 

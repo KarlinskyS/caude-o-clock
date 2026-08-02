@@ -45,6 +45,24 @@ Security**. Download packages only from this repository.
 </details>
 
 <details>
+<summary><strong>If the icon doesn't appear in the menu bar</strong></summary>
+
+Rare, but seen: macOS's menu bar rendering can get into a bad state after
+a Mac has been running a long time (weeks of uptime, many menu-bar apps
+installed) and silently refuses to register a new icon — with no error
+shown anywhere. This isn't specific to Caude o'clock; any menu-bar app can
+hit it. If `caude start` reports success but no icon shows up, try these
+in order (each is more disruptive than the last, so try them top-down):
+
+1. **Run `caude start` again** (or quit and reopen if you installed the
+   `.pkg`). This alone often clears it.
+2. **Log out and log back in** — resets macOS's window/menu-bar system
+   without a full restart.
+3. **Restart your Mac.**
+
+</details>
+
+<details>
 <summary><strong>For contributors</strong></summary>
 
 Release, package-build, and implementation notes live in

@@ -117,6 +117,34 @@ def _link_button(text, size, target, action) -> NSButton:
     return btn
 
 
+def _bordered_button(text, target, action, size=13, prominent=False, tooltip=None) -> NSButton:
+    """A real bezeled push button -- for actions that deserve more visual
+    weight than `_link_button`'s plain text link (e.g. recovering from an
+    error, quitting)."""
+    btn = NSButton.alloc().initWithFrame_(NSMakeRect(0, 0, 10, 30))
+    btn.setBezelStyle_(1)  # NSBezelStyleRounded
+    btn.setBordered_(True)
+    font = NSFont.systemFontOfSize_(size)
+    if prominent:
+        btn.setBezelColor_(NSColor.controlAccentColor())
+        attrs = {
+            NSFontAttributeName: font,
+            NSForegroundColorAttributeName: NSColor.whiteColor(),
+        }
+        btn.setAttributedTitle_(NSAttributedString.alloc().initWithString_attributes_(text, attrs))
+    else:
+        btn.setFont_(font)
+        btn.setTitle_(text)
+    if tooltip:
+        btn.setToolTip_(tooltip)
+    btn.setTarget_(target)
+    btn.setAction_(action)
+    btn.sizeToFit()
+    frame = btn.frame()
+    btn.setFrameSize_((max(frame.size.width, 40), max(frame.size.height, 28)))
+    return btn
+
+
 def build_card(usage, today, updated_text, plan_label, target,
                 refresh_action, open_action, quit_action):
     """Builds and returns the full card NSView. `target` is the NSObject that
@@ -155,23 +183,31 @@ def build_card(usage, today, updated_text, plan_label, target,
     y = _add_divider(root, y)
 
     # --- Footer -----------------------------------------------------------
+    # Quit's geometry decides Retry's -- Retry sits centered directly above
+    # it, not pinned to the card's right edge (that reads lopsided once the
+    # icon is narrower than the "Quit" button beneath it).
+    quit_btn = _bordered_button(t("quit"), target, quit_action, size=13)
+    quit_x = CARD_WIDTH - PAD_X - quit_btn.frame().size.width
+    quit_center_x = quit_x + quit_btn.frame().size.width / 2
+
+    refresh_btn = _link_button("⟳", 20, target, refresh_action)
+    refresh_btn.setToolTip_(t("refresh"))
+    refresh_btn.setFrameOrigin_((quit_center_x - refresh_btn.frame().size.width / 2, y))
+
     updated = _label(updated_text, size=11, color=NSColor.tertiaryLabelColor())
-    updated.setFrameOrigin_((PAD_X, y + 2))
+    updated.setFrameOrigin_((PAD_X, y + (refresh_btn.frame().size.height - updated.frame().size.height) / 2))
     root.addSubview_(updated)
-
-    refresh_btn = _link_button(t("refresh"), 11, target, refresh_action)
-    refresh_btn.setFrameOrigin_((CARD_WIDTH - PAD_X - refresh_btn.frame().size.width, y))
     root.addSubview_(refresh_btn)
-    y += 26
+    y += refresh_btn.frame().size.height + 10
 
+    # Row 2: Open Claude (link) and Quit (bordered), directly under Retry.
     open_btn = _link_button(t("open_claude"), 11, target, open_action)
-    open_btn.setFrameOrigin_((PAD_X, y))
+    open_btn.setFrameOrigin_((PAD_X, y + (quit_btn.frame().size.height - open_btn.frame().size.height) / 2))
+    quit_btn.setFrameOrigin_((quit_x, y))
     root.addSubview_(open_btn)
-
-    quit_btn = _link_button(t("quit"), 11, target, quit_action)
-    quit_btn.setFrameOrigin_((CARD_WIDTH - PAD_X - quit_btn.frame().size.width, y))
     root.addSubview_(quit_btn)
-    y += 24
+
+    y += quit_btn.frame().size.height + 10
 
     root.setFrame_(NSMakeRect(0, 0, CARD_WIDTH, y))
     return root

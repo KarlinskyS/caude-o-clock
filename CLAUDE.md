@@ -109,17 +109,131 @@ fix it *not being janky*:
   the first time the popover is shown, then cached in `self._overlay_level`
   — never recomputed after that.
 
-## Icon highlight while popover is open
+## Icon can silently fail to appear at all (WindowServer exhaustion)
 
-`NSStatusBarButton` doesn't automatically stay highlighted for a
-manually-managed popover the way it would for a real `NSMenu`. We call
-`setHighlighted_(True)` ourselves — but doing it synchronously inside
-`toggle_()` gets immediately overwritten, because `toggle_()` runs *from
-inside* the button's own mouseDown tracking loop, which resets
-`highlighted=NO` as it wraps up *after* the action method returns. Fix:
-defer the `setHighlighted_(True)` call to the next runloop tick via a
-zero-interval `NSTimer` (`applyHighlight_`), so it runs after that tracking
-loop has actually finished.
+Separate from, and more serious than, the highlight cosmetics below: the
+menu bar icon can simply **never appear**, with the app process alive,
+no crash, no exception, no log output of any kind. User-facing guidance
+is in the README ("If the icon doesn't appear in the menu bar"); this is
+the technical story for whoever debugs it next.
+
+**Root cause**: `NSStatusBar.systemStatusBar().statusItemWithLength_(-1)`
+(the very first line of `applicationDidFinishLaunching_`) talks to
+WindowServer over a CoreGraphics/SkyLight connection to actually register
+the icon. On a Mac that's been up a long time and/or has accumulated a lot
+of menu-bar-item create/destroy churn (many status-bar apps installed,
+or -- as happened during this app's own development -- many rapid
+restarts across many processes in one sitting), that connection can fail
+to establish. Confirmed two ways during development:
+- A native crash (`SIGABRT`) was captured in
+  `~/Library/Logs/DiagnosticReports/`, with the crashing frame *inside*
+  `-[NSStatusBar _statusItemWithLength:withPriority:]` → `CGSConnectionByID`
+  → an assertion failure -- i.e. the crash was WindowServer's own code
+  refusing to hand out a connection, not anything in this app's Python.
+- The same failure can also happen *without* crashing: the call returns a
+  perfectly valid-looking `NSStatusItem` object (no exception raised,
+  nothing to catch), but WindowServer never actually composites anything
+  on screen for it. Reproduced with a 15-line script containing nothing
+  but a bare `NSStatusBar` call and no other app logic, ruling out
+  anything specific to this codebase.
+- A full reboot reliably cleared it in both forms observed.
+
+**Why this app can't detect or route around it itself**: there is no
+exception, no error code, and no reliable in-process signal that "the
+icon didn't actually render" -- the object handed back is indistinguishable
+from a working one. Querying via Accessibility (`System Events` /
+`osascript`) to check from *outside* the process is unreliable here too
+(permission-gated, and returned false negatives during investigation even
+for icons later confirmed visible). There's nothing to retry: the launchd
+agent's `KeepAlive` only restarts the process on a *crash*, and a process
+that "succeeded" at this call (in the non-crashing failure mode above)
+never exits, so `KeepAlive` never even sees a reason to intervene.
+
+**Why other menu-bar apps don't seem to hit this**: probably mostly
+because they aren't repeatedly creating and destroying status items across
+many rapid app restarts the way this app's own development process did
+in one sitting -- ordinary usage (install once, leave it running for
+weeks) is a fundamentally different load pattern on whatever WindowServer
+resource is getting exhausted, and likely far less likely to trip this in
+practice. Not fully verified: whether a long-lived, well-behaved app is
+literally immune to this given enough uptime on its own, or just far less
+likely to encounter it than this app's own dev-session churn made it.
+
+## Icon highlight while popover is open (known cosmetic bug, unresolved)
+
+Goal: the status bar icon should look "active" for as long as the popover
+is open, the way a real `NSMenu` would automatically look. **Current
+behavior: it blinks (on, briefly off, back on) on the first click, then
+visibly double-blinks on every click after that, and does not reliably
+stay highlighted while the popover is open.** This is understood to be
+cosmetic only — the popover itself opens/closes correctly and reliably;
+only the icon's own highlight is affected. Left as a known limitation
+after an extensive, evidence-based investigation (below) rather than
+reached for further increasingly invasive workarounds.
+
+What was tried, in order, each confirmed (via temporary debug logging,
+removed afterward) to change *something* but never fully fix it:
+
+1. `setHighlighted_(True)` synchronously inside `toggle_()` — clobbered by
+   the button cell's own mouseDown/mouseUp tracking loop, which resets
+   `highlighted` on release regardless of what's set in between.
+2. The same call deferred to the next runloop tick via a zero-interval
+   `NSTimer` (`applyHighlight_`), to land after that reset — the icon does
+   then stay highlighted, but visibly double-blinks first (native ON,
+   native OFF, forced ON) instead of one clean transition.
+3. `button.cell().setHighlightsBy_(0)`, meant to stop the cell resetting
+   `highlighted` on its own — wrong property: `highlightsBy` picks *which
+   visual style* the cell draws for a highlighted state, not whether it
+   auto-highlights. With no style selected, nothing drew at all, ours
+   included.
+4. `setState_(1)`/`setState_(0)` instead of `highlighted` — persists
+   independently of the tracking loop in principle, but didn't visibly
+   hold in practice either.
+5. Removing all manual highlight code, relying on `NSPopover` to highlight
+   its own anchor view automatically (confirmed this is real, documented
+   behavior: `davidcaddy/MenuBarPopoverExample`, the reference
+   implementation Apple-adjacent tutorials for "menu bar icon + NSPopover"
+   link to, calls nothing but `popover.show(relativeTo:of:preferredEdge:)`
+   / `popover.performClose(_:)`, no highlight code anywhere) — the icon
+   highlighted briefly then dropped out while the popover stayed open, so
+   whatever's automatic didn't hold for us either.
+6. `sendActionOn_` was firing `toggle_` on `NSEventMaskLeftMouseDown`
+   rather than the default mouseUp (added for right-click support).
+   Theory: NSPopover's anchor-highlight logic assumes the button's own
+   mouseDown/mouseUp tracking loop has already finished by the time the
+   popover appears, which mouseDown breaks (popover opens *mid*-tracking-
+   loop; the loop's eventual mouseUp reset lands after and wins). Switched
+   to `NSEventMaskLeftMouseUp | NSEventMaskRightMouseUp` -- no change.
+7. Asymmetric `sendActionOn_` (`LeftMouseDown | RightMouseUp`), per a
+   documented *different* NSStatusItem highlight bug and its workaround
+   (Jesse Squires, jessesquires.com/blog/2019/08/16/workaround-highlight-
+   bug-nsstatusitem/, about right-click leaving the icon stuck highlighted
+   until a second click) — kept as the current trigger mask since it's a
+   real fix for that separate, related failure mode, but confirmed via
+   logging that it does not affect the double-blink here.
+8. Re-added (2) on top of (6)/(7) — the icon does stay highlighted this
+   way, but the double blink from (2) is back. **This is current code.**
+
+Debug logging at every step (comparing `isHighlighted()` before/after each
+call, across both rapid and deliberately slow ~2-3s-spaced clicks)
+consistently showed the *logical* state transitions are single and
+correct on every click — exactly one highlight-on per open, one
+highlight-off per close, no duplicate or dropped calls. The visible
+double-blink persisted regardless, which points to the actual remaining
+issue being at the WindowServer/compositing layer, not in call ordering
+we control from Python -- consistent with this Mac's independently
+documented WindowServer flakiness (see the icon-registration issue above).
+
+Not attempted: swizzling `-[NSWindow canBecomeKeyWindow]` on the private
+`NSStatusBarWindow` class, per Shaheen Gandhi's deeper dive into
+NSPopover/NSStatusBarWindow key-window conflicts
+(shaheengandhi.com/using-nspopover-with-nsstatusitem/).
+Deliberately not pursued: relies on an undocumented private class (could
+break on any macOS update), requires runtime method-implementation
+swapping (a real crash risk if the signature/calling convention is off),
+and addresses a documented symptom (text fields not becoming first
+responder, double-click-to-activate when inactive) that isn't obviously
+the same root cause as this one -- for a purely cosmetic payoff.
 
 ## PyObjC method-naming gotcha (caused several crashes during dev)
 
