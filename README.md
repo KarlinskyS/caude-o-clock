@@ -68,6 +68,12 @@ open the popover and view usage or open claude.ai. Use the power icon in the
 popover to quit the current app session. Use `caude stop` (or `./caude stop`
 from a checkout) when you also want to disable its background launch.
 
+### Found a bug?
+
+Please [open an issue](https://github.com/KarlinskyS/caude-o-clock/issues) on
+GitHub — that's the best way to report bugs or request a feature. No GitHub
+account? Email 4923920@gmail.com instead.
+
 ### License
 
 Released under the [MIT License](LICENSE).
@@ -91,6 +97,10 @@ in order (each is more disruptive than the last, so try them top-down):
 
 <details>
 <summary><strong>For contributors</strong></summary>
+
+Want to contribute a change? Fork the repo, push your changes to a branch
+there, and open a pull request against `main` — no direct write access is
+needed. Nothing lands until it's reviewed and merged.
 
 Release notes live in [docs/RELEASING.md](docs/RELEASING.md).
 
